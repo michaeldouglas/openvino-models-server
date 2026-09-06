@@ -23,20 +23,12 @@ services:
   ovms:
     image: ${OVMS_IMAGE:-openvino/model_server:2026.3.1-gpu}
     command:
-      - --model_repository_path
-      - /models
-      - --source_model
-      - ${OVMS_SOURCE_MODEL:-OpenVINO/Qwen3-1.7B-int4-ov}
-      - --model_name
-      - ${OVMS_MODEL_NAME:-Qwen3-1.7B-int4-ov}
+      - --config_path
+      - /models/config.json
       - --rest_port
       - "8000"
-      - --target_device
-      - GPU
-      - --task
-      - text_generation
-      - --max_num_seqs
-      - ${OVMS_MAX_NUM_SEQS:-4}
+      - --file_system_poll_wait_seconds
+      - "0"
     volumes:
       - ./models:/models
       - ${OVMS_WSL_LIB:-/usr/lib/wsl}:/usr/lib/wsl:ro

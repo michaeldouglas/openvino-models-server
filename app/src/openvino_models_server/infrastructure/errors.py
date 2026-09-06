@@ -12,6 +12,12 @@ class CapacityError(InferenceError):
     public_message = "A capacidade de geração está temporariamente ocupada."
 
 
+class ModelNotFoundError(InferenceError):
+    code = "model_not_found"
+    status_code = 404
+    public_message = "O modelo solicitado não está no catálogo permitido."
+
+
 class UpstreamUnavailableError(InferenceError):
     code = "upstream_unavailable"
     status_code = 503

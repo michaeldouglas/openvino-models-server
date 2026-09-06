@@ -8,7 +8,11 @@ from typing import Any, Protocol
 
 from openvino_models_server.api.schemas import GenerationRequest, GenerationResponse
 from openvino_models_server.config import Settings
-from openvino_models_server.infrastructure.errors import CapacityError, InferenceError
+from openvino_models_server.infrastructure.errors import (
+    CapacityError,
+    InferenceError,
+    ModelNotFoundError,
+)
 
 
 class InvalidRequestError(InferenceError):
@@ -22,6 +26,7 @@ class GenerationParameters:
     text: str
     max_tokens: int
     temperature: float
+    model_name: str = ""
 
 
 @dataclass(frozen=True)
@@ -46,8 +51,16 @@ class Readiness:
     reason: str | None = None
 
 
-class InferenceProvider(Protocol):
+@dataclass(frozen=True)
+class ModelStatus:
     model_name: str
+    ready: bool
+    reason: str | None = None
+
+
+class InferenceProvider(Protocol):
+    default_model: str
+    model_names: tuple[str, ...]
 
     def generate_sync(
         self, parameters: GenerationParameters, request_id: str
@@ -63,6 +76,8 @@ class InferenceProvider(Protocol):
 
     async def readiness(self) -> Readiness: ...
 
+    async def model_statuses(self) -> tuple[ModelStatus, ...]: ...
+
 
 class GenerationService:
     def __init__(self, settings: Settings, provider: InferenceProvider) -> None:
@@ -74,6 +89,7 @@ class GenerationService:
     def parameters(self, request: GenerationRequest) -> GenerationParameters:
         if len(request.text) > self.settings.max_input_chars:
             raise InvalidRequestError()
+        model_name = self.resolve_model(request)
         max_tokens = request.max_tokens or self.settings.default_max_tokens
         if max_tokens > self.settings.max_tokens_limit:
             raise InvalidRequestError()
@@ -82,7 +98,13 @@ class GenerationService:
             if request.temperature is not None
             else self.settings.default_temperature
         )
-        return GenerationParameters(request.text, max_tokens, temperature)
+        return GenerationParameters(request.text, max_tokens, temperature, model_name)
+
+    def resolve_model(self, request: GenerationRequest) -> str:
+        model_name = request.model or self.provider.default_model
+        if model_name not in self.provider.model_names:
+            raise ModelNotFoundError()
+        return model_name
 
     def generate_sync(self, request: GenerationRequest, request_id: str) -> GenerationResponse:
         parameters = self.parameters(request)
@@ -122,6 +144,9 @@ class GenerationService:
 
     async def readiness(self) -> Readiness:
         return await self.provider.readiness()
+
+    async def model_statuses(self) -> tuple[ModelStatus, ...]:
+        return await self.provider.model_statuses()
 
     def _response(self, result: ProviderResult, request_id: str) -> GenerationResponse:
         return GenerationResponse(

@@ -4,6 +4,7 @@ import pytest
 
 from openvino_models_server.application.generation import (
     GenerationParameters,
+    ModelStatus,
     ProviderChunk,
     ProviderResult,
     Readiness,
@@ -11,7 +12,8 @@ from openvino_models_server.application.generation import (
 
 
 class FakeProvider:
-    model_name = "test-model"
+    default_model = "test-model"
+    model_names = ("test-model", "other-model")
 
     def __init__(self, ready: bool = True) -> None:
         self.ready = ready
@@ -23,7 +25,12 @@ class FakeProvider:
         del request_id
         self.sync_calls += 1
         self.prompts.append(parameters.text)
-        return ProviderResult(self.model_name, "resposta sync", "stop", {"total_tokens": 2})
+        return ProviderResult(
+            parameters.model_name or self.default_model,
+            "resposta sync",
+            "stop",
+            {"total_tokens": 2},
+        )
 
     async def generate_async(
         self, parameters: GenerationParameters, request_id: str
@@ -31,7 +38,7 @@ class FakeProvider:
         del request_id
         self.async_calls += 1
         self.prompts.append(parameters.text)
-        return ProviderResult(self.model_name, "resposta async", "stop")
+        return ProviderResult(parameters.model_name or self.default_model, "resposta async", "stop")
 
     async def stream(
         self, parameters: GenerationParameters, request_id: str
@@ -42,6 +49,12 @@ class FakeProvider:
 
     async def readiness(self) -> Readiness:
         return Readiness(self.ready, None if self.ready else "model_unavailable")
+
+    async def model_statuses(self) -> tuple[ModelStatus, ...]:
+        return tuple(
+            ModelStatus(name, self.ready, None if self.ready else "model_unavailable")
+            for name in self.model_names
+        )
 
 
 @pytest.fixture

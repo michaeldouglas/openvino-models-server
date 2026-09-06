@@ -8,6 +8,7 @@ import httpx
 
 from openvino_models_server.application.generation import (
     GenerationParameters,
+    ModelStatus,
     ProviderChunk,
     ProviderResult,
     Readiness,
@@ -24,7 +25,12 @@ class OVMSClient:
     """OpenAI-compatible OVMS adapter with one reusable client per protocol."""
 
     def __init__(self, settings: Settings) -> None:
-        self.model_name = settings.ovms_model_name
+        definitions = settings.model_definitions()
+        self.default_model = settings.ovms_default_model
+        self.model_names = tuple(definition.alias for definition in definitions)
+        self._servable_names = {
+            definition.alias: definition.servable_name for definition in definitions
+        }
         timeout = httpx.Timeout(
             settings.request_timeout_seconds, connect=settings.connect_timeout_seconds
         )
@@ -49,7 +55,7 @@ class OVMSClient:
             raise GenerationTimeoutError() from exc
         except httpx.HTTPError as exc:
             raise UpstreamUnavailableError() from exc
-        return self._parse_result(response)
+        return self._parse_result(response, parameters.model_name or self.default_model)
 
     async def generate_async(
         self, parameters: GenerationParameters, request_id: str
@@ -62,7 +68,7 @@ class OVMSClient:
             raise GenerationTimeoutError() from exc
         except httpx.HTTPError as exc:
             raise UpstreamUnavailableError() from exc
-        return self._parse_result(response)
+        return self._parse_result(response, parameters.model_name or self.default_model)
 
     async def stream(
         self, parameters: GenerationParameters, request_id: str
@@ -73,7 +79,9 @@ class OVMSClient:
             ) as response:
                 if response.status_code >= 400:
                     raise UpstreamResponseError()
-                async for chunk in self._iter_sse(response):
+                async for chunk in self._iter_sse(
+                    response, parameters.model_name or self.default_model
+                ):
                     yield chunk
         except GenerationTimeoutError:
             raise
@@ -85,21 +93,41 @@ class OVMSClient:
             raise UpstreamUnavailableError() from exc
 
     async def readiness(self) -> Readiness:
+        statuses = await self.model_statuses()
+        default_status = next(
+            (status for status in statuses if status.model_name == self.default_model), None
+        )
+        if default_status is None:
+            return Readiness(False, "model_unavailable")
+        return Readiness(default_status.ready, default_status.reason)
+
+    async def model_statuses(self) -> tuple[ModelStatus, ...]:
         try:
             response = await self._async_client.get("/v1/models")
         except httpx.HTTPError:
-            return Readiness(False, "upstream_unavailable")
+            return tuple(
+                ModelStatus(name, False, "upstream_unavailable") for name in self.model_names
+            )
         if response.status_code >= 400:
-            return Readiness(False, "model_unavailable")
+            return tuple(
+                ModelStatus(name, False, "model_unavailable") for name in self.model_names
+            )
         try:
             body = response.json()
         except ValueError:
-            return Readiness(False, "upstream_failed")
+            return tuple(
+                ModelStatus(name, False, "upstream_failed") for name in self.model_names
+            )
         models = body.get("data", []) if isinstance(body, dict) else []
         ids = {item.get("id") for item in models if isinstance(item, dict)}
-        if ids and self.model_name not in ids:
-            return Readiness(False, "model_unavailable")
-        return Readiness(True)
+        return tuple(
+            ModelStatus(
+                name,
+                self._servable_names[name] in ids,
+                None if self._servable_names[name] in ids else "model_unavailable",
+            )
+            for name in self.model_names
+        )
 
     async def aclose(self) -> None:
         await self._async_client.aclose()
@@ -112,7 +140,10 @@ class OVMSClient:
         self, parameters: GenerationParameters, request_id: str, stream: bool
     ) -> dict[str, Any]:
         return {
-            "model": self.model_name,
+            "model": self._servable_names.get(
+                parameters.model_name or self.default_model,
+                parameters.model_name or self.default_model,
+            ),
             "messages": [{"role": "user", "content": parameters.text}],
             "max_tokens": parameters.max_tokens,
             "temperature": parameters.temperature,
@@ -121,11 +152,12 @@ class OVMSClient:
             "user": request_id,
         }
 
-    def _parse_result(self, response: httpx.Response) -> ProviderResult:
+    def _parse_result(self, response: httpx.Response, model_name: str) -> ProviderResult:
         if response.status_code >= 400:
             raise UpstreamResponseError()
         try:
             body = response.json()
+            self._validate_response_model(body, model_name)
             choice = body["choices"][0]
             message = choice.get("message", {})
             text = message.get("content", choice.get("text", ""))
@@ -136,13 +168,23 @@ class OVMSClient:
             raise UpstreamResponseError() from exc
         usage = body.get("usage")
         return ProviderResult(
-            self.model_name,
+            model_name,
             text,
             finish_reason,
             usage if isinstance(usage, dict) else None,
         )
 
-    async def _iter_sse(self, response: httpx.Response) -> AsyncIterator[ProviderChunk]:
+    def _validate_response_model(self, body: Any, model_name: str) -> None:
+        if not isinstance(body, dict):
+            raise UpstreamResponseError()
+        upstream_model = body.get("model")
+        expected_model = self._servable_names.get(model_name, model_name)
+        if upstream_model is not None and upstream_model not in {model_name, expected_model}:
+            raise UpstreamResponseError()
+
+    async def _iter_sse(
+        self, response: httpx.Response, model_name: str
+    ) -> AsyncIterator[ProviderChunk]:
         data_lines: list[str] = []
         current_size = 0
         async for line in response.aiter_lines():
@@ -151,7 +193,7 @@ class OVMSClient:
                 raise UpstreamResponseError()
             if not line:
                 if data_lines:
-                    chunk = self._parse_chunk("\n".join(data_lines))
+                    chunk = self._parse_chunk("\n".join(data_lines), model_name)
                     data_lines = []
                     current_size = 0
                     if chunk is not None:
@@ -162,15 +204,16 @@ class OVMSClient:
             if line.startswith("data:"):
                 data_lines.append(line[5:].lstrip())
         if data_lines:
-            chunk = self._parse_chunk("\n".join(data_lines))
+            chunk = self._parse_chunk("\n".join(data_lines), model_name)
             if chunk is not None:
                 yield chunk
 
-    def _parse_chunk(self, data: str) -> ProviderChunk | None:
+    def _parse_chunk(self, data: str, model_name: str) -> ProviderChunk | None:
         if data == "[DONE]":
             return ProviderChunk(done=True, finish_reason="stop")
         try:
             body = json.loads(data)
+            self._validate_response_model(body, model_name)
             choice = body.get("choices", [{}])[0]
             delta = choice.get("delta", {})
             text = delta.get("content")

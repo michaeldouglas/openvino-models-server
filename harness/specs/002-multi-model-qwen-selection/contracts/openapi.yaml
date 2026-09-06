@@ -1,0 +1,69 @@
+openapi: 3.1.0
+info:
+  title: OpenVINO Models Server - Multi-model selection
+  version: 0.2.0
+paths:
+  /v1/models:
+    get:
+      summary: Lista os modelos configurados e seus estados
+      responses:
+        '200':
+          description: Catálogo de modelos
+  /v1/generate/sync:
+    post:
+      summary: Geração síncrona com modelo opcional
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerationRequest'
+      responses:
+        '200':
+          description: Resposta completa
+  /v1/generate/async:
+    post:
+      summary: Geração assíncrona com modelo opcional
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerationRequest'
+      responses:
+        '200':
+          description: Resposta completa
+  /v1/generate/stream:
+    post:
+      summary: Geração SSE com modelo opcional
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerationRequest'
+      responses:
+        '200':
+          description: Eventos delta, done e error
+          content:
+            text/event-stream: {}
+components:
+  schemas:
+    GenerationRequest:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        model:
+          type: string
+          enum: [qwen3-1.7b, qwen3-8b]
+        text:
+          type: string
+          minLength: 1
+        max_tokens:
+          type: integer
+          minimum: 1
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2

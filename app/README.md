@@ -20,15 +20,16 @@ OVMS é o único responsável por carregar o modelo e executar a geração.
   parser SSE do OVMS.
 - `tests`: testes permanentes com upstream controlado; não exigem GPU/modelo.
 - `models`: armazenamento persistente local, ignorado pelo Git.
+- `scripts/prepare-models.ps1`: prepara os dois artefatos Qwen e gera a configuração multi-modelo do OVMS.
 - `compose.yaml`: serviços `api` e `ovms`.
 
 ## Modelo e GPU
 
-O candidato inicial é `OpenVINO/Qwen3-1.7B-int4-ov`, revisão `main`, IR INT4
-assimétrica e licença Apache-2.0. Alternativas registradas no Spec Kit são
-`OpenVINO/Qwen2.5-1.5B-Instruct-int4-ov` e `OpenVINO/Qwen3-4B-int4-ov`.
-Nenhuma destas escolhas substitui teste de qualidade em português, consumo de
-memória ou desempenho na GPU real.
+Os modelos configurados são `OpenVINO/Qwen3-1.7B-int4-ov` (alias
+`qwen3-1.7b`) e `OpenVINO/Qwen3-8B-int4-ov` (alias `qwen3-8b`), ambos em
+INT4 e com licença Apache-2.0. O 1.7B permanece como padrão e fallback. O
+artefato 8B tem aproximadamente 4,88 GB e requer validação de memória e
+desempenho na GPU real; qualidade em português não é inferida do tamanho.
 
 O Compose usa `openvino/model_server:2026.3.1-gpu` e `--target_device GPU`.
 Essa é uma imagem versionada, mas o digest deve ser conferido e fixado quando
@@ -55,9 +56,17 @@ docker compose up -d --build
 ```
 
 Os pesos serão persistidos em `app/models/` e não entram na imagem da API.
-Preparação/download deve ser executado separadamente e de forma idempotente,
-conforme o relatório do agente OpenVINO. O serviço OVMS não publica porta no
-host; somente a API fica em `127.0.0.1:8000`.
+Prepare os modelos antes do boot, de forma idempotente:
+
+```powershell
+.\scripts\prepare-models.ps1
+```
+
+O script reutiliza artefatos completos, prepara somente o que estiver faltando
+e gera `app/models/config.json`. Use `-SkipDownload` para somente registrar os
+modelos já disponíveis. O serviço OVMS usa esse `config.json` para servir
+múltiplos graphs; não baixa modelos durante o boot e não publica porta no host.
+Somente a API fica em `127.0.0.1:8000`.
 
 Operacional:
 
@@ -80,11 +89,13 @@ As três rotas aceitam o mesmo corpo:
 ```
 
 `max_tokens` padrão 128 (máximo configurado 512), `temperature` padrão 0,2
-(0–2) e texto de entrada limitado por padrão a 12.000 caracteres. O cliente não
-escolhe modelo, URL ou caminho local.
+(0–2) e texto de entrada limitado por padrão a 12.000 caracteres. O cliente
+pode escolher somente `qwen3-1.7b` ou `qwen3-8b`; URL e caminho local nunca são
+aceitos.
 
 ```powershell
 curl.exe -X POST http://127.0.0.1:8000/v1/generate/sync -H "Content-Type: application/json" -d '{"text":"Explique em português o que é OpenVINO.","max_tokens":64}'
+curl.exe -X POST http://127.0.0.1:8000/v1/generate/sync -H "Content-Type: application/json" -d '{"model":"qwen3-8b","text":"Explique em português o que é OpenVINO.","max_tokens":64}'
 curl.exe -X POST http://127.0.0.1:8000/v1/generate/async -H "Content-Type: application/json" -d '{"text":"Explique em português o que é OpenVINO.","max_tokens":64}'
 curl.exe -N -X POST http://127.0.0.1:8000/v1/generate/stream -H "Accept: text/event-stream" -H "Content-Type: application/json" -d '{"text":"Explique em português o que é OpenVINO.","max_tokens":64}'
 ```
@@ -94,6 +105,10 @@ I/O bloqueante no threadpool do FastAPI; a async usa `httpx.AsyncClient` e
 `async/await`; ambas aguardam o resultado na mesma requisição. Streaming
 encaminha eventos `delta`, `done` e `error` reais. Um delta pode ser parte de
 uma palavra, várias palavras ou vazio; concatene os textos dos deltas.
+
+`GET /v1/models` informa quais aliases estão prontos e qual é o padrão. A
+seleção é por requisição, portanto não há troca global que possa afetar uma
+geração concorrente. Se o 8B não estiver pronto, o 1.7B continua disponível.
 
 Erros retornam `{ "error": { "code", "message", "request_id" } }` com códigos
 para entrada inválida, capacidade, upstream indisponível/falho e timeout.

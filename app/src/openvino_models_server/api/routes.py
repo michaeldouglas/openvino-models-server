@@ -12,6 +12,8 @@ from openvino_models_server.api.schemas import (
     GenerationRequest,
     GenerationResponse,
     HealthResponse,
+    ModelListResponse,
+    ModelStatusResponse,
     ReadinessResponse,
 )
 from openvino_models_server.application.generation import GenerationService
@@ -45,6 +47,24 @@ async def readyz(
     return JSONResponse(status_code=503, content=body.model_dump())
 
 
+@router.get("/v1/models", response_model=ModelListResponse, tags=["operational"])
+async def models(
+    service: Annotated[GenerationService, Depends(get_service)],
+) -> ModelListResponse:
+    statuses = await service.model_statuses()
+    return ModelListResponse(
+        data=[
+            ModelStatusResponse(
+                model=status.model_name,
+                status="ready" if status.ready else "unavailable",
+                default=status.model_name == service.provider.default_model,
+                reason=status.reason,
+            )
+            for status in statuses
+        ]
+    )
+
+
 @router.post("/v1/generate/sync", response_model=GenerationResponse, tags=["generation"])
 def generate_sync(
     request_body: GenerationRequest,
@@ -70,6 +90,7 @@ async def generate_stream(
     service: Annotated[GenerationService, Depends(get_service)],
 ) -> StreamingResponse:
     request_id = request.state.request_id
+    model_name = service.resolve_model(request_body)
 
     async def events() -> AsyncIterator[str]:
         emitted_done = False
@@ -80,7 +101,7 @@ async def generate_stream(
                         "delta",
                         {
                             "request_id": request_id,
-                            "model": service.provider.model_name,
+                            "model": model_name,
                             "text": chunk.text,
                         },
                     )
@@ -90,7 +111,7 @@ async def generate_stream(
                         "done",
                         {
                             "request_id": request_id,
-                            "model": service.provider.model_name,
+                            "model": model_name,
                             "finish_reason": chunk.finish_reason or "stop",
                             "usage": chunk.usage,
                         },
@@ -100,7 +121,7 @@ async def generate_stream(
                     "done",
                     {
                         "request_id": request_id,
-                        "model": service.provider.model_name,
+                        "model": model_name,
                         "finish_reason": "stop",
                     },
                 )

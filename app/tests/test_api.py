@@ -26,6 +26,33 @@ def test_sync_and_async_return_common_contract() -> None:
     assert provider.async_calls == 1
 
 
+def test_explicit_model_is_accepted_and_default_is_preserved() -> None:
+    provider = FakeProvider()
+    with make_client(provider) as client:
+        selected = client.post(
+            "/v1/generate/sync", json={"model": "other-model", "text": "Oi"}
+        )
+        default = client.post("/v1/generate/sync", json={"text": "Oi"})
+
+    assert selected.status_code == 200
+    assert default.status_code == 200
+    assert selected.json()["model"] == "other-model"
+    assert default.json()["model"] == "test-model"
+    assert provider.prompts == ["Oi", "Oi"]
+
+
+def test_unknown_model_is_rejected_before_provider() -> None:
+    provider = FakeProvider()
+    with make_client(provider) as client:
+        response = client.post(
+            "/v1/generate/sync", json={"model": "not-allowed", "text": "Oi"}
+        )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "model_not_found"
+    assert provider.sync_calls == 0
+
+
 def test_blank_input_is_rejected_before_provider() -> None:
     provider = FakeProvider()
     with make_client(provider) as client:
@@ -67,4 +94,14 @@ def test_openapi_has_exact_generation_routes() -> None:
         "/v1/generate/stream",
         "/healthz",
         "/readyz",
+        "/v1/models",
     }
+
+
+def test_models_catalog_marks_default_and_status() -> None:
+    with make_client() as client:
+        response = client.get("/v1/models")
+
+    assert response.status_code == 200
+    assert response.json()["object"] == "list"
+    assert response.json()["data"][0]["default"] is True
