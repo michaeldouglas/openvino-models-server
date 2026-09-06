@@ -1,0 +1,104 @@
+name: Promote develop to main
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - develop
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: promote-develop-to-main
+  cancel-in-progress: false
+
+jobs:
+  ensure-promotion-pr:
+    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop' }}
+    name: ensure-promotion-pr
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update PR from develop to main
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const source = 'develop';
+            const target = 'main';
+            const mergedPr = context.payload.pull_request;
+
+            if (mergedPr.base.ref !== source || mergedPr.merged !== true) {
+              core.info('Closed PR was not merged into develop; no promotion PR needed.');
+              return;
+            }
+
+            const comparison = await github.rest.repos.compareCommitsWithBasehead({
+              owner,
+              repo,
+              basehead: `${target}...${source}`
+            });
+            if (comparison.data.status === 'identical' || comparison.data.ahead_by === 0) {
+              core.info(`No differences between ${source} and ${target}; no PR created.`);
+              return;
+            }
+
+            const existing = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              head: `${owner}:${source}`,
+              base: target,
+              per_page: 100
+            });
+            if (existing.data.length > 1) {
+              core.setFailed(`Expected at most one open ${source} -> ${target} PR, found ${existing.data.length}.`);
+              return;
+            }
+
+            const changedFiles = (comparison.data.files || [])
+              .map(file => `- ${file.filename}`)
+              .slice(0, 40);
+            const body = [
+              '## Objetivo',
+              'Promover o conteúdo integrado em `develop` para `main`.',
+              '',
+              '## Mudanças',
+              changedFiles.length > 0 ? changedFiles.join('\n') : '- Consulte o diff entre develop e main.',
+              '',
+              '## Origem',
+              `PR mesclado: #${mergedPr.number} — ${mergedPr.html_url}`,
+              '',
+              '## Verificações',
+              '- PR de promoção criado/atualizado por metadados do GitHub.',
+              '- O merge em main continua sendo uma decisão manual.',
+              '',
+              'Origem: `' + source + '`',
+              'Destino: `' + target + '`'
+            ].join('\n');
+
+            if (existing.data.length === 1) {
+              const pr = existing.data[0];
+              await github.rest.pulls.update({
+                owner,
+                repo,
+                pull_number: pr.number,
+                title: 'Promote develop to main',
+                body,
+                base: target
+              });
+              core.info(`Updated PR #${pr.number}: ${pr.html_url}`);
+              return;
+            }
+
+            const created = await github.rest.pulls.create({
+              owner,
+              repo,
+              head: source,
+              base: target,
+              title: 'Promote develop to main',
+              body
+            });
+            core.info(`Created PR #${created.data.number}: ${created.data.html_url}`);

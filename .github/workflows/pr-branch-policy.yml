@@ -1,0 +1,44 @@
+name: PR branch policy
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate-pr-branch-policy:
+    name: validate-pr-branch-policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate source and destination
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const repository = `${context.repo.owner}/${context.repo.repo}`;
+            const headRepository = pr.head.repo?.full_name;
+            const base = pr.base.ref;
+            const head = pr.head.ref;
+
+            if (headRepository !== repository) {
+              core.setFailed(`PRs must originate in ${repository}; received ${headRepository || 'deleted repository'}.`);
+              return;
+            }
+
+            if (base === 'develop' && !head.startsWith('feature/')) {
+              core.setFailed(`PRs targeting develop must originate from feature/**; received ${head}.`);
+              return;
+            }
+
+            if (base === 'main' && head !== 'develop') {
+              core.setFailed(`PRs targeting main must originate exclusively from develop; received ${head}.`);
+              return;
+            }
+
+            core.info(`Accepted PR route: ${head} -> ${base}`);
