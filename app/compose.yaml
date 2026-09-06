@@ -1,0 +1,52 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      OVMS_URL: http://ovms:8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      ovms:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  ovms:
+    image: ${OVMS_IMAGE:-openvino/model_server:2026.3.1-gpu}
+    command:
+      - --model_repository_path
+      - /models
+      - --source_model
+      - ${OVMS_SOURCE_MODEL:-OpenVINO/Qwen3-1.7B-int4-ov}
+      - --model_name
+      - ${OVMS_MODEL_NAME:-Qwen3-1.7B-int4-ov}
+      - --rest_port
+      - "8000"
+      - --target_device
+      - GPU
+      - --task
+      - text_generation
+      - --max_num_seqs
+      - ${OVMS_MAX_NUM_SEQS:-4}
+    volumes:
+      - ./models:/models
+      - ${OVMS_WSL_LIB:-/usr/lib/wsl}:/usr/lib/wsl:ro
+    devices:
+      - ${OVMS_HOST_DEVICE:-/dev/dxg}:${OVMS_CONTAINER_DEVICE:-/dev/dxg}
+    expose:
+      - "8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/v1/models"]
+      interval: 15s
+      timeout: 5s
+      retries: 10

@@ -1,165 +1,112 @@
 openapi: 3.0.3
 info:
-  title: FastAPI OpenVINO Text Inference API
+  title: OpenVINO Model Server API
   version: 0.1.0
-  description: Contract for local text generation through a configured language model.
+  description: Geração de texto por FastAPI usando OVMS na rede interna.
 servers:
   - url: /
 paths:
-  /v1/generate:
-    post:
-      operationId: generateText
-      summary: Generate text from an input text
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GenerationRequest'
-      responses:
-        '200':
-          description: Text generated successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenerationResult'
-        '400':
-          description: The request is syntactically valid but violates an input rule.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: The request body is malformed or has an invalid field type.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '503':
-          description: The service or model is not ready.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '504':
-          description: Generation exceeded the configured timeout.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Controlled generation failure.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
   /healthz:
     get:
-      operationId: healthCheck
-      summary: Check whether the process is alive
+      operationId: healthz
       responses:
         '200':
-          description: Process is alive.
+          description: API viva
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/HealthResponse'
-
+              schema: { $ref: '#/components/schemas/HealthResponse' }
   /readyz:
     get:
-      operationId: readinessCheck
-      summary: Check whether text generation is available
+      operationId: readyz
       responses:
         '200':
-          description: Model and required configuration are ready.
+          description: Modelo pronto
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/ReadinessResponse'
+              schema: { $ref: '#/components/schemas/ReadinessResponse' }
         '503':
-          description: Process is alive but cannot generate text.
+          description: Modelo indisponível ou configuração inválida
           content:
             application/json:
+              schema: { $ref: '#/components/schemas/ReadinessResponse' }
+  /v1/generate/sync:
+    post:
+      operationId: generateSync
+      requestBody: { $ref: '#/components/requestBodies/GenerationRequest' }
+      responses: { '200': { $ref: '#/components/responses/GenerationResponse' }, '4XX': { $ref: '#/components/responses/ErrorResponse' }, '5XX': { $ref: '#/components/responses/ErrorResponse' } }
+  /v1/generate/async:
+    post:
+      operationId: generateAsync
+      requestBody: { $ref: '#/components/requestBodies/GenerationRequest' }
+      responses: { '200': { $ref: '#/components/responses/GenerationResponse' }, '4XX': { $ref: '#/components/responses/ErrorResponse' }, '5XX': { $ref: '#/components/responses/ErrorResponse' } }
+  /v1/generate/stream:
+    post:
+      operationId: generateStream
+      requestBody: { $ref: '#/components/requestBodies/GenerationRequest' }
+      responses:
+        '200':
+          description: Eventos SSE incrementais
+          content:
+            text/event-stream:
               schema:
-                $ref: '#/components/schemas/ReadinessResponse'
-
+                type: string
+                description: Cada evento contém `event` e JSON em `data`.
+        '4XX': { $ref: '#/components/responses/ErrorResponse' }
+        '5XX': { $ref: '#/components/responses/ErrorResponse' }
 components:
+  requestBodies:
+    GenerationRequest:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/GenerationRequest' }
+  responses:
+    GenerationResponse:
+      description: Geração concluída
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/GenerationResponse' }
+    ErrorResponse:
+      description: Erro controlado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
   schemas:
     GenerationRequest:
       type: object
       additionalProperties: false
-      required:
-        - text
+      required: [text]
       properties:
-        text:
-          type: string
-          minLength: 1
-          description: Text to send to the configured language model.
-
-    GenerationResult:
+        text: { type: string, minLength: 1, maxLength: 12000 }
+        max_tokens: { type: integer, minimum: 1, maximum: 512, default: 128 }
+        temperature: { type: number, minimum: 0, maximum: 2, default: 0.2 }
+    GenerationResponse:
       type: object
-      additionalProperties: false
-      required:
-        - text
+      required: [request_id, model, text, finish_reason]
       properties:
-        text:
-          type: string
-          description: Text generated by the configured language model.
-
+        request_id: { type: string }
+        model: { type: string }
+        text: { type: string }
+        finish_reason: { type: string }
+        usage: { type: object, additionalProperties: true, nullable: true }
     ErrorResponse:
       type: object
-      additionalProperties: false
-      required:
-        - error
+      required: [error]
       properties:
         error:
           type: object
-          additionalProperties: false
-          required:
-            - code
-            - message
-            - request_id
+          required: [code, message, request_id]
           properties:
-            code:
-              type: string
-              enum:
-                - invalid_request
-                - not_ready
-                - model_unavailable
-                - generation_timeout
-                - generation_failed
-            message:
-              type: string
-            request_id:
-              type: string
-
+            code: { type: string, enum: [invalid_request, capacity_limited, not_ready, upstream_unavailable, upstream_failed, generation_timeout] }
+            message: { type: string }
+            request_id: { type: string }
     HealthResponse:
       type: object
-      additionalProperties: false
-      required:
-        - status
-      properties:
-        status:
-          type: string
-          enum:
-            - alive
-
+      required: [status]
+      properties: { status: { type: string, enum: [alive] } }
     ReadinessResponse:
       type: object
-      additionalProperties: false
-      required:
-        - status
+      required: [status]
       properties:
-        status:
-          type: string
-          enum:
-            - ready
-            - not_ready
-        reason:
-          type: string
-          enum:
-            - model_unavailable
-            - invalid_configuration
-            - model_load_failed
-          description: Safe operational reason; no internal paths or traces.
+        status: { type: string, enum: [ready, not_ready] }
+        reason: { type: string, nullable: true }

@@ -31,10 +31,8 @@
 
 ## Notes
 
-- Validação concluída sem marcadores de esclarecimento. Os nomes FastAPI,
-  Docker e OpenVINO aparecem somente como contexto explícito do produto e como
-  restrições de planejamento fornecidas pelo solicitante; a especificação não
-  prescreve estrutura de código ou comandos de implementação.
-- A especificação está pronta para `$speckit-plan`. A escolha entre execução
-  local e servidor de modelo permanece uma decisão de planejamento baseada nas
-  evidências das skills listadas.
+- A especificação foi atualizada para as três rotas, arquitetura API + OVMS,
+  contrato SSE, GPU Intel explícita e gates de evidência.
+- Testes controlados, Ruff, mypy, Compose config e Graphify do app passaram. A
+  validação real do modelo no OVMS/GPU permanece pendente por falta de prova de
+  WSL2/dispositivo/container e porque o artefato ainda não foi preparado.
