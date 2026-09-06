@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import httpx
 
@@ -10,7 +11,8 @@ from openvino_models_server.infrastructure.ovms_client import OVMSClient
 def test_sync_client_maps_openai_compatible_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/v1/chat/completions"
-        assert request.read()[0:0] == b""
+        payload = json.loads(request.content)
+        assert payload["chat_template_kwargs"] == {"enable_thinking": False}
         return httpx.Response(
             200,
             json={"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]},
@@ -30,6 +32,9 @@ def test_sync_client_maps_openai_compatible_response() -> None:
 def test_async_client_uses_stream_true_and_parses_sse() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/v1/chat/completions"
+        payload = json.loads(request.content)
+        assert payload["stream"] is True
+        assert payload["chat_template_kwargs"] == {"enable_thinking": False}
         return httpx.Response(
             200,
             headers={"content-type": "text/event-stream"},

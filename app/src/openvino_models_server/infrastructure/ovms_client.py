@@ -116,6 +116,7 @@ class OVMSClient:
             "messages": [{"role": "user", "content": parameters.text}],
             "max_tokens": parameters.max_tokens,
             "temperature": parameters.temperature,
+            "chat_template_kwargs": {"enable_thinking": False},
             "stream": stream,
             "user": request_id,
         }
