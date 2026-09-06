@@ -37,7 +37,7 @@
 - [X] T018 [P] [US3] Validate Compose syntax and Dockerfile/configuration without starting the model service when GPU/model prerequisites are absent.
 - [X] T019 [US1] Run `graphify update C:/Users/mdbaa/development/Agents/server-agents/app` and record the app graph location.
 - [ ] T020 [US3] Record runtime/image/model/GPU evidence and real-generation/benchmark results, or the exact blocked prerequisites, in `harness/.agent-work/runs/<run-id>/openvino-engineer/reports/`.
-- [X] T021 [US1] Perform independent findings-first review with `quality-reviewer`; assign any correction tasks before code edits.
+- [ ] T021 [US1] Perform independent findings-first review with `quality-reviewer`; assign any correction tasks before code edits. The installed `codex review` command rejected the attempted workspace option, so this remains an explicit gate.
 
 ## Dependencies and execution order
 
