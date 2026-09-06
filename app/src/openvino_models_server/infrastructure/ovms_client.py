@@ -172,8 +172,12 @@ class OVMSClient:
             body = json.loads(data)
             choice = body.get("choices", [{}])[0]
             delta = choice.get("delta", {})
-            text = delta.get("content", "")
+            text = delta.get("content")
+            if text is None:
+                text = delta.get("reasoning_content", "")
             finish_reason = choice.get("finish_reason")
+            if text is None:
+                text = ""
             if not isinstance(text, str):
                 raise ValueError
         except (json.JSONDecodeError, IndexError, KeyError, TypeError, ValueError) as exc:
