@@ -72,10 +72,11 @@ jobs:
             throw 'PowerShell syntax validation failed.'
           }
 
-          if ((Get-Content -LiteralPath '.gitignore' -Raw) -notmatch '(?m)^/harness/\.agent-work/$') {
+          $gitignoreLines = Get-Content -LiteralPath '.gitignore'
+          if (-not ($gitignoreLines | Where-Object { $_.Trim() -eq '/harness/.agent-work/' })) {
             throw 'Root .gitignore does not protect harness/.agent-work.'
           }
-          if ((Get-Content -LiteralPath '.gitignore' -Raw) -notmatch '(?m)^/app/models/\*') {
+          if (-not ($gitignoreLines | Where-Object { $_.Trim() -eq '/app/models/*' })) {
             throw 'Root .gitignore does not protect app/models artifacts.'
           }
 
