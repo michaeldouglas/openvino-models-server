@@ -1,0 +1,16 @@
+# Generated Graphify state; keep it in the canonical location but do not index it.
+graphify-out/
+
+# Agent-run outputs and tool caches are operational data, not project structure.
+.agent-work/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+coverage/
+htmlcov/
+*.pyc
+__pycache__/
+
+# Reusable environment files are not application architecture.
+.venv/
+venv/

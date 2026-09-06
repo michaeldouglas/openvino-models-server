@@ -1,0 +1,65 @@
+# Shared repository: C:\Users\mdbaa\development\Agents\server-agents
+# Keep product code, tests, documentation, Spec Kit artifacts, skills, Codex
+# configuration, and reusable scripts versioned. Ignore only local/generated data.
+
+# Operating system and editor noise
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+
+# Python bytecode and local environments (harness and app)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+
+# Test, type-checking, linting, and coverage outputs
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.pytype/
+.coverage
+.coverage.*
+coverage/
+htmlcov/
+coverage.xml
+test-output/
+test-results/
+
+# Temporary and diagnostic material accidentally created under either project
+tmp/
+temp/
+scratch/
+debug/
+*.log
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+
+# Harness-generated operational state and Graphify output
+/graphify-out/
+/harness/.agent-work/
+/harness/graphify-out/
+
+# Application-generated operational state and model artifacts
+/app/.agent-work/
+/app/graphify-out/
+/app/models/*
+!/app/models/.gitkeep
