@@ -62,7 +62,7 @@ jobs:
               .map(file => file.filename)
               .filter(filename => /(^|\/)specs?\//i.test(filename));
             const specSection = specFiles.length > 0
-              ? specFiles.map(filename => `- `${filename}``).join('\n')
+              ? specFiles.map(filename => '- `' + filename + '`').join('\n')
               : 'Nenhuma spec foi detectada no diff.';
             const titleName = head.replace(/^feature\//, '').replace(/-/g, ' ');
             const body = [
@@ -105,3 +105,4 @@ jobs:
               });
               if (raced.data.length === 0) throw error;
               core.info(`Another run created PR #${raced.data[0].number}; reusing it.`);
+            }
