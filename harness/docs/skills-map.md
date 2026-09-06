@@ -49,3 +49,18 @@ orchestrator reads the complete SKILL.md before applying a selected skill.
 - Graphify 0.9.48 supports `.graphifyignore`; harness/.graphifyignore excludes
   generated output, agent work, caches, bytecode, and virtual environments while
   retaining code, specs, and instructions in the graph scope.
+
+## Branch and GitHub automation map
+
+| Component | Resolved path | Purpose |
+|---|---|---|
+| Feature branch gate | `scripts/New-FeatureBranch.ps1` | Confirmation-gated branch creation from updated `origin/develop` |
+| Harness validation | `../.github/workflows/harness-validation.yml` | Lightweight syntax and inventory check |
+| PR source policy | `../.github/workflows/pr-branch-policy.yml` | Enforce same-repository `feature/**` -> `develop` and `develop` -> `main` |
+| Feature PR automation | `../.github/workflows/ensure-feature-pr.yml` | Idempotent feature PR creation/reuse |
+| Promotion PR automation | `../.github/workflows/promote-develop-to-main.yml` | Idempotent promotion PR after merged develop PR |
+
+The requested `github-actions-templates` skill is not installed; the workflows
+use repository-native GitHub Actions primitives and must not be presented as
+that skill. Branch creation, commit, push, PR publication, and remote ruleset
+changes remain principal-only operations.

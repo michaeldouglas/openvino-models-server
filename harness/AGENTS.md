@@ -17,6 +17,71 @@ This file is the canonical project instruction set for the orchestrator session.
 The primary agent is the orchestrator; do not create or require another
 orchestrator subagent.
 
+### Feature branches and confirmation gates
+
+Before starting a new feature, the orchestrator MUST report the current
+branch and ask exactly:
+
+    Deseja criar uma nova branch de feature para esta tarefa? Sugestão: feature/<nome-descritivo>. Se não, continuarei na branch atual.
+
+This question is asked once for the feature, before branch creation or other
+feature changes. The same gate applies to harness configuration work. A
+confirmation creates `feature/<nome-descritivo>` from an updated
+`origin/develop`; it must not silently continue on `main` or `develop`. A
+rejected branch request may continue only on an already suitable work branch.
+Never switch branches, discard changes, or stash automatically. Inspect and
+preserve dirty changes before any branch transition. Reuse an existing feature
+branch only after checking its history and relationship to the requested
+feature.
+
+Use `scripts/New-FeatureBranch.ps1` for the confirmation-gated operation. The
+wrapper derives the shared Git root from its own location, fetches
+`origin/develop`, validates the base, and uses only standard Git operations.
+It refuses to mutate state without `-Confirmed` and refuses a dirty checkout.
+The principal is the only agent allowed to coordinate branches, commits,
+pushes, or pull requests.
+
+### Spec Kit, commits, push and pull requests
+
+The orchestrator owns the Spec Kit sequence and the association between
+feature, spec, tasks, commit, branch, and PR. The installed
+`.specify/scripts/powershell/create-new-feature.ps1` creates the numbered
+`specs/<number>-<slug>` artifacts and `.specify/feature.json`; it does not
+create or switch Git branches. Run it only after the branch decision and keep
+the feature branch name (`feature/<slug>`) in the surrounding work record and
+PR description. Do not duplicate an existing spec or planning artifact.
+
+After implementation and applicable checks, the principal reviews the diff
+for secrets, temporary files, models, and unrelated changes, stages only
+pertinent files, and creates local commits. It then asks exactly:
+
+    Posso fazer o push da branch <branch> para o repositório michaeldouglas/openvino-models-server e abrir ou atualizar o PR para develop?
+
+Wait for an explicit answer. Without that answer, keep changes local; do not
+publish by Git, MCP, API, or another tool. Each new push needs a new
+confirmation unless the user explicitly authorizes multiple pushes in a named
+scope. Never force-push, publish extra branches, or let a subagent publish
+independently.
+
+The repository workflows live at the shared root
+`C:/Users/mdbaa/development/Agents/server-agents/.github/workflows/`, not in
+`app`. `ensure-feature-pr.yml` idempotently creates or reuses one PR from
+`feature/**` to `develop` when the branch has differences. After a PR is
+actually merged into `develop`, `promote-develop-to-main.yml` creates or
+updates the single PR from `develop` to `main`; it never approves, enables
+auto-merge, or merges. `pr-branch-policy.yml` validates the source and target
+branches, and `harness-validation.yml` supplies the `validate-harness` check.
+The Actions setting that permits workflows to create pull requests is separate
+from local MCP credentials and must be verified on GitHub before claiming the
+automation is active.
+
+The user-owned rulesets currently report `main` and `develop` as protected via
+the available GitHub branch inspection. Exact ruleset requirements and
+required-check configuration are not exposed by the installed MCP tools; do
+not claim those administrative details are verified until GitHub exposes them
+or the user checks them in the repository settings. Require only checks that
+actually exist and have run.
+
 ### Resolved workspaces
 
 - Harness: C:\Users\mdbaa\development\Agents\server-agents\harness
@@ -82,7 +147,9 @@ Subagents MUST NOT spawn further subagents or create worktrees automatically.
 - platform-engineer: Docker, configuration, device access, model persistence,
   health checks, and CI. Uses docker; the requested github-actions-templates
   skill is not installed and MUST be reported before any CI work. Uses the
-  OpenVINO Model Server skill only when OVMS is selected.
+  OpenVINO Model Server skill only when OVMS is selected. It may prepare
+  metadata-only workflows and validation, but cannot publish, change remote
+  protections, or use write credentials to execute feature code.
 - quality-reviewer: independent findings-first review of behavior, security,
   tests, lint, typing, and evidence. Uses code-review-excellence,
   ruff-recursive-fix, python-testing-patterns, python-type-safety,
@@ -117,3 +184,12 @@ The existing Graphify hook in .codex/hooks.json is preserved. The harness graph
 is maintained at harness/graphify-out/graph.json by explicit updates. A future
 app graphify update MUST target the app directory explicitly and be coordinated
 by the orchestrator.
+
+### Branch/workflow operating record
+
+For every feature, record the branch decision, Spec Kit feature path, allowed
+files, validation evidence, commit IDs, and PR URL under the run's exclusive
+`.agent-work` reports directory. A feature PR targets `develop` and must come
+from the same repository under the permitted `feature/` namespace. A promotion
+PR targets `main` and must come exclusively from `develop`. Do not create an
+empty PR or treat a review approval/closure as a merge.

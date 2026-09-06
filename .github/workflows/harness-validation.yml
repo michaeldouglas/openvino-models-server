@@ -1,0 +1,82 @@
+name: Harness validation
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate-harness:
+    name: validate-harness
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required harness files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $required = @(
+            'harness/AGENTS.md',
+            'harness/.codex/config.toml',
+            'harness/.codex/agents/openvino-engineer.toml',
+            'harness/.codex/agents/api-engineer.toml',
+            'harness/.codex/agents/platform-engineer.toml',
+            'harness/.codex/agents/quality-reviewer.toml',
+            'harness/.specify/scripts/powershell/create-new-feature.ps1',
+            'harness/scripts/New-FeatureBranch.ps1'
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Missing required harness file: $path"
+            }
+          }
+
+          $tomlFiles = Get-ChildItem -LiteralPath 'harness/.codex/agents' -Filter '*.toml' -File
+          if ($tomlFiles.Count -ne 4) {
+            throw "Expected exactly four project subagents, found $($tomlFiles.Count)."
+          }
+          foreach ($file in $tomlFiles) {
+            $text = Get-Content -LiteralPath $file.FullName -Raw
+            foreach ($key in @('name =', 'description =', 'developer_instructions =')) {
+              if ($text -notmatch [regex]::Escape($key)) {
+                throw "Missing '$key' in $($file.FullName)"
+              }
+            }
+          }
+
+          $parseErrors = @()
+          foreach ($script in @(
+            'harness/scripts/New-FeatureBranch.ps1',
+            'harness/scripts/Invoke-AgentCommand.ps1',
+            'harness/scripts/Clean-AgentWork.ps1'
+          )) {
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path -LiteralPath $script),
+              [ref]$null,
+              [ref]$parseErrors
+            ) | Out-Null
+          }
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            throw 'PowerShell syntax validation failed.'
+          }
+
+          if ((Get-Content -LiteralPath '.gitignore' -Raw) -notmatch '(?m)^/harness/\.agent-work/$') {
+            throw 'Root .gitignore does not protect harness/.agent-work.'
+          }
+          if ((Get-Content -LiteralPath '.gitignore' -Raw) -notmatch '(?m)^/app/models/\*') {
+            throw 'Root .gitignore does not protect app/models artifacts.'
+          }
+
+          Write-Output 'Harness validation passed.'

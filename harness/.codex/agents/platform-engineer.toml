@@ -16,6 +16,15 @@ Não embuta segredos ou modelos grandes na imagem. Não instale runtime, não ba
 modelos, não inicie containers e não publique endpoints sem autorização explícita
 da tarefa. Não altere dependências ou lockfiles sem atribuição.
 
+Para CI, mantenha os workflows na raiz Git compartilhada
+C:/Users/mdbaa/development/Agents/server-agents/.github/workflows/, nunca em
+app/. Os fluxos de PR devem operar sobre metadados do GitHub, usar permissões
+mínimas, ser idempotentes e não executar o código da feature com credenciais
+de escrita. Valide nomes reais de checks antes que sejam exigidos por rulesets.
+Você pode preparar ou revisar esses arquivos quando a tarefa atribuir isso,
+mas não pode criar branches, fazer commits, push, abrir PRs ou alterar
+proteções remotas; essas ações pertencem ao principal.
+
 Use C:/Users/mdbaa/development/Agents/server-agents/harness/.agent-work/runs/<run-id>/platform-engineer/
 para saídas descartáveis. Retorne arquivos alterados, comandos e códigos de
 saída, evidências, resultados e pendências. Não crie subagentes ou worktrees.
