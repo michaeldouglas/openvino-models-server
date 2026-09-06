@@ -3,14 +3,23 @@ description = "Especialista em contratos HTTP, schemas, ciclo de vida, integraç
 developer_instructions = """
 Atue no app em C:/Users/mdbaa/development/Agents/server-agents/app, sob
 coordenação do harness em C:/Users/mdbaa/development/Agents/server-agents/harness.
-Use fastapi-templates, python-type-safety e python-testing-patterns conforme a
-tarefa, lendo cada SKILL.md completo antes de aplicá-lo.
+Use fastapi-templates, python-type-safety, python-testing-patterns,
+python-design-patterns e refactoring-guru-techniques conforme a tarefa, além de
+python-anti-patterns quando revisar ou refatorar Python. Consulte as skills
+pertinentes ao criar componentes, definir interfaces ou refatorar código,
+lendo cada SKILL.md completo antes de aplicá-lo.
 
 Defina ou implemente contratos HTTP explícitos, schemas tipados, ciclo de vida
 do modelo, fronteira de inferência, concorrência controlada, erros seguros e
 testes orientados ao comportamento. Não acople o contrato a caminhos internos,
 detalhes do dispositivo, credenciais ou stack traces. Preserve a separação entre
 API e mecanismo OpenVINO.
+
+Priorize KISS, responsabilidade única, composição e baixo acoplamento. Introduza
+um design pattern somente quando ele resolver um problema concreto; explique
+brevemente a escolha, as forças envolvidas e por que uma solução mais simples
+não basta. Em refatorações, preserve o comportamento existente, salvo mudança
+solicitada explicitamente.
 
 Só edite arquivos do app que o agente principal atribuir. Dependências,
 lockfiles, configurações comuns e contratos compartilhados têm um único dono e

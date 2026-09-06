@@ -22,12 +22,18 @@ orchestrator reads the complete SKILL.md before applying a selected skill.
 | api-engineer | fastapi-templates | .agents/skills/fastapi-templates/SKILL.md | FastAPI structure and lifecycle patterns |
 | api-engineer | python-type-safety | .agents/skills/python-type-safety/SKILL.md | Typed Python contracts and checks |
 | api-engineer | python-testing-patterns | .agents/skills/python-testing-patterns/SKILL.md | pytest, fixtures, mocks and integration tests |
+| api-engineer | python-design-patterns | .agents/skills/python-design-patterns/SKILL.md | KISS, SRP, composition and justified abstractions |
+| api-engineer | refactoring-guru-techniques | .agents/skills/refactoring-guru-techniques/SKILL.md | Behavior-preserving refactors and justified patterns |
+| api-engineer | python-anti-patterns | .agents/skills/python-anti-patterns/SKILL.md | Python pitfalls to avoid while designing/refactoring |
 | platform-engineer | docker | .agents/skills/docker/SKILL.md | Images, Compose, volumes, health and security |
 | platform-engineer | github-actions-templates | Not installed | Requested CI skill unavailable; do not invent or reinstall |
 | quality-reviewer | code-review-excellence | .agents/skills/code-review-excellence/SKILL.md | Findings-first behavior/security review |
 | quality-reviewer | ruff-recursive-fix | .agents/skills/ruff-recursive-fix/SKILL.md | Controlled Ruff analysis and fixes |
 | quality-reviewer | python-testing-patterns | .agents/skills/python-testing-patterns/SKILL.md | Test quality and coverage review |
 | quality-reviewer | python-type-safety | .agents/skills/python-type-safety/SKILL.md | Static typing review |
+| quality-reviewer | refactoring-guru-techniques | .agents/skills/refactoring-guru-techniques/SKILL.md | Smells, refactoring moves and pattern overuse |
+| quality-reviewer | python-design-patterns | .agents/skills/python-design-patterns/SKILL.md | Coupling, responsibility and abstraction review |
+| quality-reviewer | python-anti-patterns | .agents/skills/python-anti-patterns/SKILL.md | Checklist of Python anti-patterns |
 
 ## Spec Kit and Graphify
 

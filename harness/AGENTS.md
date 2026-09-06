@@ -73,16 +73,26 @@ Subagents MUST NOT spawn further subagents or create worktrees automatically.
   container start, artifact generation, or benchmarks.
 - api-engineer: HTTP contracts, typed schemas, lifecycle, inference boundary,
   concurrency, errors, and API tests. Uses fastapi-templates,
-  python-type-safety, and python-testing-patterns.
+  python-type-safety, python-testing-patterns, python-design-patterns, and
+  refactoring-guru-techniques; consults the relevant skills when creating
+  components, defining interfaces, or refactoring. Prioritizes KISS, single
+  responsibility, composition, and low coupling. Introduces patterns only for
+  concrete problems, briefly explaining the choice, and preserves behavior
+  during refactors unless a change is requested.
 - platform-engineer: Docker, configuration, device access, model persistence,
   health checks, and CI. Uses docker; the requested github-actions-templates
   skill is not installed and MUST be reported before any CI work. Uses the
   OpenVINO Model Server skill only when OVMS is selected.
 - quality-reviewer: independent findings-first review of behavior, security,
   tests, lint, typing, and evidence. Uses code-review-excellence,
-  ruff-recursive-fix, python-testing-patterns, and python-type-safety. It may
-  write temporary test outputs under its exclusive work directory, but MUST NOT
-  edit application code unless a correction task explicitly assigns it.
+  ruff-recursive-fix, python-testing-patterns, python-type-safety,
+  refactoring-guru-techniques, python-design-patterns, and
+  python-anti-patterns to identify code smells, antipatterns, duplication,
+  coupling, and unnecessary abstractions. Each finding must include file,
+  symbol, impact, and correction suggestion; it also checks whether patterns
+  were introduced without need. It may write temporary test outputs under its
+  exclusive work directory, but MUST NOT edit application code unless a
+  correction task explicitly assigns it.
 
 ### Output and cleanup policy
 
