@@ -110,7 +110,7 @@
         status.classList.add("ready");
       }
 
-      function generationPayload() {
+      function generationPayload(text) {
         if (!modelsReady || !modelSelect.value) {
           throw new Error("Aguarde um modelo ficar pronto antes de enviar.");
         }
@@ -124,7 +124,7 @@
         }
         return {
           model: modelSelect.value,
-          text: promptInput.value.trim(),
+          text: text ?? promptInput.value.trim(),
           max_tokens: maxTokens,
           temperature,
         };
@@ -147,11 +147,11 @@
         return body;
       }
 
-      async function generateStreaming(answer) {
+      async function generateStreaming(answer, payload) {
         const response = await fetch("/api/v1/generate/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(generationPayload()),
+          body: JSON.stringify(payload),
         });
         if (!response.ok) await readJsonResponse(response);
         if (!response.body) throw new Error("A API não retornou um stream legível.");
@@ -182,19 +182,20 @@
         if (!prompt) return;
 
         addMessage("user", prompt);
-        promptInput.value = "";
         sendButton.disabled = true;
         const answer = addMessage("assistant", "Pensando...");
 
         try {
+          const payload = generationPayload(prompt);
+          promptInput.value = "";
           if (modeSelect.value === "stream") {
             answer.textContent = "";
-            await generateStreaming(answer);
+            await generateStreaming(answer, payload);
           } else {
             const response = await fetch(`/api/v1/generate/${modeSelect.value}`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(generationPayload()),
+              body: JSON.stringify(payload),
             });
             const body = await readJsonResponse(response);
             answer.textContent = body.text || "A API retornou uma resposta vazia.";
