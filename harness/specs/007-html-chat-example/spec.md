@@ -11,7 +11,9 @@ configurar um frontend separado.
 
 - **FR-001**: O exemplo MUST ficar em `app/examples/chat-html`.
 - **FR-002**: O exemplo MUST listar modelos prontos usando `/v1/models`.
-- **FR-003**: O exemplo MUST enviar mensagens para `/v1/chat/completions`.
+- **FR-003**: O exemplo MUST permitir chamadas `sync`, `async` e `streaming`
+  pelas rotas `/v1/generate/sync`, `/v1/generate/async` e
+  `/v1/generate/stream`.
 - **FR-004**: O exemplo MUST ser executável com `docker compose up -d` dentro
   da própria pasta.
 - **FR-005**: O proxy MUST evitar dependência de CORS no navegador.
@@ -22,5 +24,5 @@ configurar um frontend separado.
 
 - A página abre em `http://127.0.0.1:8088`.
 - Modelos com status `ready` aparecem no seletor.
-- Uma mensagem retorna o conteúdo de `choices[0].message.content`.
+- Uma mensagem retorna texto nas modalidades sync, async e streaming.
 - `docker compose down` remove o container do exemplo sem afetar a API.

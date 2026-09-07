@@ -9,8 +9,9 @@
   `host.docker.internal:8000`.
 - `compose.yaml` conterá somente o serviço do exemplo e montará os dois
   arquivos estáticos como somente leitura.
-- O frontend consumirá `/api/v1/models` no carregamento e
-  `/api/v1/chat/completions` no envio.
+- O frontend consumirá `/api/v1/models` no carregamento e escolherá entre
+  `/api/v1/generate/sync`, `/api/v1/generate/async` e
+  `/api/v1/generate/stream` no envio.
 
 ## Validation
 

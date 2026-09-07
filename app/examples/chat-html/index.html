@@ -21,7 +21,7 @@
       .message.error { background: #7f1d1d; }
       .empty { color: #94a3b8; text-align: center; padding: 100px 16px; }
       form { display: grid; gap: 12px; padding: 16px; border-top: 1px solid #334155; }
-      .controls { display: grid; grid-template-columns: 1fr 140px 140px; gap: 10px; }
+      .controls { display: grid; grid-template-columns: 1fr 1fr 140px 140px; gap: 10px; }
       select, input, textarea, button { border: 1px solid #475569; border-radius: 10px; background: #0f172a; color: inherit; font: inherit; padding: 10px 12px; }
       textarea { min-height: 76px; resize: vertical; }
       button { border: 0; background: #2563eb; cursor: pointer; font-weight: 700; }
@@ -47,6 +47,13 @@
         </div>
         <form id="chat-form">
           <div class="controls">
+            <label>Tipo de chamada
+              <select id="mode">
+                <option value="sync">Sync</option>
+                <option value="async">Async</option>
+                <option value="stream">Streaming</option>
+              </select>
+            </label>
             <label>Modelo
               <select id="model" required></select>
             </label>
@@ -64,6 +71,7 @@
     </main>
 
     <script>
+      const modeSelect = document.querySelector("#mode");
       const modelSelect = document.querySelector("#model");
       const messages = document.querySelector("#messages");
       const empty = document.querySelector("#empty");
@@ -98,6 +106,50 @@
         status.classList.add("ready");
       }
 
+      function generationPayload() {
+        return {
+          model: modelSelect.value,
+          text: promptInput.value.trim(),
+          max_tokens: Number(document.querySelector("#max-tokens").value),
+          temperature: Number(document.querySelector("#temperature").value),
+        };
+      }
+
+      async function readJsonResponse(response) {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error?.message || body.detail || "Falha na geração.");
+        return body;
+      }
+
+      async function generateStreaming(answer) {
+        const response = await fetch("/api/v1/generate/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(generationPayload()),
+        });
+        if (!response.ok) await readJsonResponse(response);
+        if (!response.body) throw new Error("A API não retornou um stream legível.");
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { value, done } = await reader.read();
+          buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+          const events = buffer.split("\n\n");
+          buffer = events.pop() || "";
+          for (const event of events) {
+            const data = event.split("\n").find((line) => line.startsWith("data:"));
+            if (!data) continue;
+            const payload = JSON.parse(data.slice(5).trim());
+            if (event.includes("event: error")) throw new Error(payload.error?.message || "Falha no streaming.");
+            if (event.includes("event: delta")) answer.textContent += payload.text || "";
+          }
+          if (done) break;
+          messages.scrollTop = messages.scrollHeight;
+        }
+      }
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const prompt = promptInput.value.trim();
@@ -109,20 +161,18 @@
         const answer = addMessage("assistant", "Pensando...");
 
         try {
-          const response = await fetch("/api/v1/chat/completions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: modelSelect.value,
-              messages: [{ role: "user", content: prompt }],
-              max_tokens: Number(document.querySelector("#max-tokens").value),
-              temperature: Number(document.querySelector("#temperature").value),
-              stream: false,
-            }),
-          });
-          const body = await response.json();
-          if (!response.ok) throw new Error(body.error?.message || body.detail || "Falha na geração.");
-          answer.textContent = body.choices?.[0]?.message?.content || "A API retornou uma resposta vazia.";
+          if (modeSelect.value === "stream") {
+            answer.textContent = "";
+            await generateStreaming(answer);
+          } else {
+            const response = await fetch(`/api/v1/generate/${modeSelect.value}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(generationPayload()),
+            });
+            const body = await readJsonResponse(response);
+            answer.textContent = body.text || "A API retornou uma resposta vazia.";
+          }
         } catch (error) {
           answer.classList.add("error");
           answer.textContent = error instanceof Error ? error.message : "Erro inesperado.";
