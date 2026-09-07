@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=75,<76"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local-llm"
+version = "0.1.0"
+description = "Installable local LLM runtime with OpenAI-compatible API"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.116,<0.117",
+    "httpx>=0.28,<0.29",
+    "pydantic-settings>=2.10,<2.11",
+    "uvicorn[standard]>=0.35,<0.36",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4,<8.5",
+    "pytest-cov>=6.2,<6.3",
+    "ruff>=0.12,<0.13",
+    "mypy>=1.17,<1.18",
+]
+langchain = [
+    "langchain-openai>=0.3,<1",
+]
+
+[project.scripts]
+local-llm = "local_llm.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["src"]

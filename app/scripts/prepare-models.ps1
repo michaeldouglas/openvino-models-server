@@ -1,7 +1,11 @@
 [CmdletBinding()]
 param(
     [string]$Image = "openvino/model_server:2026.3.1-gpu",
-    [switch]$SkipDownload
+    [switch]$SkipDownload,
+    [ValidateRange(1, 32)]
+    [int]$Qwen17BMaxNumSeqs = 2,
+    [ValidateRange(1, 32)]
+    [int]$Qwen8BMaxNumSeqs = 1
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,13 +18,13 @@ $definitions = @(
         Alias = "qwen3-1.7b"
         Source = "OpenVINO/Qwen3-1.7B-int4-ov"
         RelativePath = "OpenVINO/Qwen3-1.7B-int4-ov"
-        MaxNumSeqs = 4
+        MaxNumSeqs = $Qwen17BMaxNumSeqs
     },
     [pscustomobject]@{
         Alias = "qwen3-8b"
         Source = "OpenVINO/Qwen3-8B-int4-ov"
         RelativePath = "OpenVINO/Qwen3-8B-int4-ov"
-        MaxNumSeqs = 1
+        MaxNumSeqs = $Qwen8BMaxNumSeqs
     }
 )
 
@@ -73,6 +77,9 @@ foreach ($definition in $definitions) {
             "--task", "text_generation",
             "--max_num_seqs", "$($definition.MaxNumSeqs)"
         )
+    }
+    else {
+        Write-Host "Reutilizando $($definition.Alias); artefatos existentes não serão sobrescritos."
     }
 
     if (Test-PreparedModel $modelPath) {

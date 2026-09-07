@@ -1,0 +1,14 @@
+# Runtime-only data belongs to the service that owns it.
+.env
+models/*
+!models/.gitkeep
+models/.ov_cache/
+services/benchmark/results/*
+!services/benchmark/results/.gitkeep
+
+# Local Python/tool caches
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.venv/
