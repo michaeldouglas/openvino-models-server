@@ -123,7 +123,7 @@ Os relatórios ficam em
 feature em `specs/003-guidellm-observability/quickstart.md` explica como trocar
 modelo, entrada, saída, concorrência e limites, além de interpretar tokens/s,
 TTFT, ITL, latência e percentis. Pesos não são copiados; os tokenizers são
-montados somente para leitura a partir de `app/models`. O script imprime
+montados somente para leitura a partir de `app/runtime/models`. O script imprime
 `GUIDELLM_RUN=...`; abra `benchmarks.html` com `Invoke-Item` nesse diretório e
 consulte `benchmarks.csv`, `benchmarks.json`, `run-manifest.json` e `run.log`
 para os dados detalhados. Uma execução só passa quando há requisições
