@@ -10,7 +10,7 @@ OpenAI-compatible para clientes comuns e LangChain. A mudança será incremental
 primeiro separar fisicamente API, benchmark, deploy e resultados; depois extrair
 contratos públicos estáveis, adicionar Chat Completions com streaming e fornecer
 uma CLI mínima para inspeção/execução local. O benchmark consumirá o endpoint
-público e manterá seus relatórios dentro de `services/benchmark/results`.
+público e manterá seus relatórios dentro de `packages/benchmark-runner/results`.
 
 ## Technical Context
 
@@ -18,7 +18,7 @@ público e manterá seus relatórios dentro de `services/benchmark/results`.
 
 **Primary Dependencies**: FastAPI, Pydantic Settings, HTTPX, Uvicorn, OpenVINO Model Server 2026.3.1 GPU, GuideLLM 0.7.3; LangChain será integração opcional e não dependência do núcleo.
 
-**Storage**: Artefatos de modelos em `app/models` (fora do pacote); relatórios descartáveis em `app/services/benchmark/results`; configuração por `.env` e manifestos versionáveis.
+**Storage**: Artefatos de modelos em `app/runtime/models` (fora do pacote); relatórios descartáveis em `app/packages/benchmark-runner/results`; configuração por `.env` e manifestos versionáveis.
 
 **Testing**: pytest, pytest-cov, Ruff, mypy, validação de OpenAPI, `docker compose config`, smoke HTTP e benchmark curto condicionado à disponibilidade de GPU/modelo.
 

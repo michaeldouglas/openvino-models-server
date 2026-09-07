@@ -61,7 +61,7 @@ debug/
 # Application-generated operational state and model artifacts
 /app/.agent-work/
 /app/graphify-out/
-/app/services/benchmark/results/
-/app/models/*
-!/app/models/.gitkeep
-/app/models/.ov_cache/
+/app/packages/benchmark-runner/results/
+/app/runtime/models/*
+!/app/runtime/models/.gitkeep
+/app/runtime/models/.ov_cache/

@@ -41,7 +41,7 @@ configuration; API keys arrive from the process environment or secret store.
 
 Represents a measurement job with run ID, model, prompt/output token targets,
 concurrency, duration/request limits, status, result file names, success/error
-counts and metrics. Its files are owned by `services/benchmark/results`.
+counts and metrics. Its files are owned by `packages/benchmark-runner/results`.
 
 ## Relationships
 

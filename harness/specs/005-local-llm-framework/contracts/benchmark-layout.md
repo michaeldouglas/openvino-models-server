@@ -3,7 +3,7 @@
 The benchmark service owns:
 
 ```text
-app/services/benchmark/
+app/packages/benchmark-runner/
 ├── src/benchmark_runner/
 ├── Dockerfile
 ├── pyproject.toml
