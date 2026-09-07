@@ -33,6 +33,9 @@ As variáveis são lidas de `.env` no diretório de trabalho. O padrão é o mod
 `qwen3-1.7b`, com `DEFAULT_MAX_TOKENS=128`, `MAX_TOKENS_LIMIT=512` e
 `MAX_CONCURRENCY=2`. Para respostas interativas rápidas, use `max_tokens` de
 32–64 e streaming; limites maiores aumentam diretamente o tempo de geração.
+`PERFORMANCE_PROFILE` identifica o perfil nos logs operacionais. O perfil
+`fast` é o padrão do Compose único, carrega apenas o Qwen3 1.7B e aceita o
+ajuste `FAST_MAX_CONCURRENCY` sem alterar as rotas HTTP.
 
 O OVMS é responsável pelo cache de modelo e pelo scheduler. O Compose monta
 `runtime/models/.ov_cache` em `/opt/cache` e desativa o polling de configuração durante
@@ -89,9 +92,14 @@ Prepare os modelos a partir de `app/` com:
 docker compose --project-directory .\runtime\deployment -f .\runtime\deployment\compose.yaml up -d --build
 ```
 
+O Compose único monta `runtime/deployment/profiles/fast/config.json`, expõe
+somente `qwen3-1.7b` no catálogo da API e mantém o cache compilado do OVMS.
+Para preparar também o 8B como artefato opcional, use
+`.\runtime\scripts\prepare-models.ps1 -IncludeQwen8B`.
+
 O 1.7B é o perfil rápido padrão. O 8B é opcional e deve ser medido na GPU
 real. Para preparar uma variante experimental de scheduler, use parâmetros
-explícitos, por exemplo `.\scripts\prepare-models.ps1 -Qwen8BMaxNumSeqs 2`.
+explícitos, por exemplo `.\runtime\scripts\prepare-models.ps1 -IncludeQwen8B -Qwen8BMaxNumSeqs 2`.
 Artefatos completos existentes são sempre reutilizados; o script não os
 sobrescreve automaticamente. O manifesto do modelo, os pesos e o cache ficam
 fora do pacote Python.
@@ -110,3 +118,8 @@ Os resultados são gravados em `packages/benchmark-runner/results/<run-id>/` e n
 misturados ao código da API. O benchmark mede o caminho OVMS selecionado; as
 medições devem registrar modelo, dispositivo, aquecimento, TTFT, latência,
 tokens/s e concorrência.
+
+Cada geração também emite uma linha `generation_performance` com modelo, modo,
+concorrência configurada, TTFT quando há streaming, latência total, tokens de
+saída quando o provedor informa usage, tokens/s e resultado. Prompts e respostas
+completas não são registrados.

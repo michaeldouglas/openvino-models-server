@@ -5,7 +5,8 @@ param(
     [ValidateRange(1, 32)]
     [int]$Qwen17BMaxNumSeqs = 2,
     [ValidateRange(1, 32)]
-    [int]$Qwen8BMaxNumSeqs = 1
+    [int]$Qwen8BMaxNumSeqs = 1,
+    [switch]$IncludeQwen8B
 )
 
 $ErrorActionPreference = "Stop"
@@ -27,6 +28,10 @@ $definitions = @(
         MaxNumSeqs = $Qwen8BMaxNumSeqs
     }
 )
+
+if (-not $IncludeQwen8B) {
+    $definitions = @($definitions | Where-Object { $_.Alias -eq "qwen3-1.7b" })
+}
 
 function Invoke-Docker {
     param([string[]]$Arguments)
@@ -91,6 +96,11 @@ foreach ($definition in $definitions) {
 
 if ($prepared.Count -eq 0) {
     throw "Nenhum modelo preparado foi encontrado em $modelsRoot."
+}
+
+$fastModelPath = Join-Path $modelsRoot "OpenVINO\Qwen3-1.7B-int4-ov"
+if (-not (Test-PreparedModel $fastModelPath)) {
+    throw "O perfil fast requer o artefato completo do Qwen3 1.7B em $fastModelPath."
 }
 
 $configPath = Join-Path $modelsRoot "config.json"

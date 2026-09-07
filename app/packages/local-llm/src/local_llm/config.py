@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     benchmark_runner_url: str = Field(default="http://benchmark-runner:8080", min_length=1)
     benchmark_default_model: str = Field(default="qwen3-8b", min_length=1, max_length=128)
     benchmark_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
+    performance_profile: Literal["default", "fast", "quality"] = Field(default="default")
     request_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
     connect_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
     max_input_chars: int = Field(default=12_000, gt=0, le=100_000)
