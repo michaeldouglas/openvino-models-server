@@ -8,5 +8,5 @@
   em `127.0.0.1:8088`.
 - [X] T004 Criar README curto com entrada, execução, URL e parada.
 - [X] T005 Criar validação Spec Kit da feature.
-- [ ] T006 Validar Compose, proxy, lista de modelos e os três fluxos de geração.
+- [X] T006 Validar Compose, proxy, lista de modelos e os três fluxos de geração.
 - [ ] T007 Revisar diff, atualizar Graphify, criar commit e preparar push.

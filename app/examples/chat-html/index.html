@@ -107,17 +107,36 @@
       }
 
       function generationPayload() {
+        const maxTokens = Number(document.querySelector("#max-tokens").value);
+        const temperature = Number(document.querySelector("#temperature").value);
+        if (!Number.isInteger(maxTokens) || maxTokens < 1) {
+          throw new Error("Tokens precisa ser um número inteiro maior que zero.");
+        }
+        if (!Number.isFinite(temperature) || temperature < 0 || temperature > 2) {
+          throw new Error("Temperatura precisa estar entre 0 e 2.");
+        }
         return {
           model: modelSelect.value,
           text: promptInput.value.trim(),
-          max_tokens: Number(document.querySelector("#max-tokens").value),
-          temperature: Number(document.querySelector("#temperature").value),
+          max_tokens: maxTokens,
+          temperature,
         };
+      }
+
+      function responseError(body) {
+        if (body.error?.message) return body.error.message;
+        if (Array.isArray(body.detail)) {
+          return body.detail.map((item) => {
+            const location = item.loc?.join(".") || "request";
+            return `${location}: ${item.msg || "valor inválido"}`;
+          }).join("; ");
+        }
+        return body.detail || "Falha na geração.";
       }
 
       async function readJsonResponse(response) {
         const body = await response.json();
-        if (!response.ok) throw new Error(body.error?.message || body.detail || "Falha na geração.");
+        if (!response.ok) throw new Error(responseError(body));
         return body;
       }
 
