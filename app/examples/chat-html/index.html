@@ -79,6 +79,8 @@
       const promptInput = document.querySelector("#prompt");
       const sendButton = document.querySelector("#send");
       const status = document.querySelector("#status");
+      let modelsReady = false;
+      sendButton.disabled = true;
 
       function addMessage(role, text, extraClass = "") {
         empty.hidden = true;
@@ -102,11 +104,16 @@
           return option;
         }));
         if (!readyModels.length) throw new Error("Nenhum modelo está pronto.");
+        modelsReady = true;
+        sendButton.disabled = false;
         status.textContent = `${readyModels.length} modelo(s) pronto(s)`;
         status.classList.add("ready");
       }
 
       function generationPayload() {
+        if (!modelsReady || !modelSelect.value) {
+          throw new Error("Aguarde um modelo ficar pronto antes de enviar.");
+        }
         const maxTokens = Number(document.querySelector("#max-tokens").value);
         const temperature = Number(document.querySelector("#temperature").value);
         if (!Number.isInteger(maxTokens) || maxTokens < 1) {
@@ -196,12 +203,14 @@
           answer.classList.add("error");
           answer.textContent = error instanceof Error ? error.message : "Erro inesperado.";
         } finally {
-          sendButton.disabled = false;
+          sendButton.disabled = !modelsReady;
           promptInput.focus();
         }
       });
 
       loadModels().catch((error) => {
+        modelsReady = false;
+        sendButton.disabled = true;
         status.textContent = error instanceof Error ? error.message : "API indisponível";
         status.classList.remove("ready");
       });
