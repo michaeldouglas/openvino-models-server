@@ -8,8 +8,8 @@
 
 ## Phase 1: Setup
 
-- [X] T001 Add the fast deployment profile files under `app/runtime/deployment/profiles/fast/` and preserve the existing full profile
-- [X] T002 [P] Document fast and quality startup commands and tuning variables in `app/README.md` and `app/packages/local-llm/README.md`
+- [X] T001 Add the fast deployment profile files under `app/runtime/deployment/profiles/fast/` and make the single Compose entrypoint use it by default
+- [X] T002 [P] Document the single fast startup command and tuning variables in `app/README.md` and `app/packages/local-llm/README.md`
 - [X] T003 [P] Add the performance profile configuration fields and safe defaults to `app/packages/local-llm/src/local_llm/config.py` and `app/runtime/deployment/.env.example`
 
 ## Phase 2: Foundational
@@ -25,7 +25,7 @@
 **Independent Test**: Compose config validates, the fast OVMS config references only the 1.7B model, and API settings expose the matching model catalog.
 
 - [X] T007 [US1] Add the fast OVMS model configuration at `app/runtime/deployment/profiles/fast/config.json`
-- [X] T008 [US1] Add `app/runtime/deployment/compose.fast.yaml` with the fast model mount, API model catalog override, configurable fast concurrency, and existing GPU/cache settings
+- [X] T008 [US1] Configure `app/runtime/deployment/compose.yaml` as the single entrypoint with the fast model mount, API model catalog, configurable fast concurrency, and existing GPU/cache settings
 - [X] T009 [US1] Add a Compose/config regression test or validation script under `app/runtime/deployment/` that verifies the fast profile contains only `qwen3-1.7b`
 - [X] T010 [US1] Update `app/runtime/scripts/prepare-models.ps1` and deployment documentation so the fast profile fails clearly when the 1.7B artifact is missing
 
@@ -39,7 +39,7 @@
 
 - [X] T011 [P] [US2] Extend `app/packages/local-llm/src/local_llm/config.py` with a named performance profile and validated capacity settings
 - [X] T012 [P] [US2] Add configuration and capacity tests in `app/packages/local-llm/tests/test_config.py` and `app/packages/local-llm/tests/test_api.py`
-- [X] T013 [US2] Ensure `app/runtime/deployment/compose.fast.yaml` maps API concurrency to the OVMS sequence profile without silently changing the full deployment
+- [X] T013 [US2] Ensure `app/runtime/deployment/compose.yaml` maps API concurrency to the OVMS sequence profile without requiring a second Compose file
 - [X] T014 [US2] Update `app/runtime/deployment/.env.example` with the fast-profile override and explain latency versus throughput trade-offs
 
 **Checkpoint**: Users can tune capacity through environment/configuration without code changes or contract changes.
@@ -60,9 +60,10 @@
 ## Phase 6: Polish and validation
 
 - [X] T019 [P] Run package tests, typing, lint, and OpenAPI route validation for `app/packages/local-llm/`
-- [X] T020 [P] Run benchmark-runner tests and Compose config validation for the full and fast profiles
+- [X] T020 [P] Run benchmark-runner tests and Compose config validation for the single fast entrypoint
 - [X] T021 Run the quickstart smoke test with the fast profile when containers are explicitly authorized and available
 - [X] T022 Update the feature quickstart and implementation evidence under `harness/.agent-work/runs/`
+- [X] T023 Consolidate the fast deployment into one Compose file and make Qwen3 8B preparation opt-in
 
 ## Dependencies & Execution Order
 
@@ -84,6 +85,6 @@
 ## Implementation Strategy
 
 1. Deliver the fast profile first and validate its Compose/config contract.
-2. Add safe configurable capacity while preserving the existing full deployment.
+2. Add safe configurable capacity while keeping optional model preparation explicit.
 3. Add timing telemetry and a reproducible benchmark matrix.
 4. Run tests and only then perform the container smoke test and hardware benchmark.

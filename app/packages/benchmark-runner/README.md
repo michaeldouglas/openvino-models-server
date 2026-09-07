@@ -4,10 +4,10 @@ This service owns GuideLLM execution and all benchmark reports. It is not part
 of the API runtime package. Results are written under `results/<run-id>/` and
 are mounted into the container as `/results`.
 
-Run the service through `app/runtime/deployment/compose.yaml` with the `benchmark-api`
-profile. The runner validates OVMS before starting GuideLLM and returns a
-failed job when no successful measurements are produced. For latency work,
-start the API with `compose.fast.yaml` and run one model at a time.
+Run the service through the single `app/runtime/deployment/compose.yaml` file
+with the `benchmark-api` profile. The runner validates OVMS before starting
+GuideLLM and returns a failed job when no successful measurements are produced.
+The same Compose entrypoint already starts the fast 1.7B API configuration.
 
 For a repeatable model/concurrency matrix, run from `app/` after the API and
 the `benchmark-api` profile are ready:

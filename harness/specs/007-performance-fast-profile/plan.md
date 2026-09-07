@@ -39,7 +39,7 @@ single hardware claim.
 
 **Constraints**: Do not load the optional 8B model in the fast profile; preserve max-token and input validation; do not log complete prompts or responses; do not claim an optimal setting without a measured comparison
 
-**Scale/Scope**: One local host, one OVMS process, two named deployment profiles, existing 1.7B and 8B assets, up to 32 validated API concurrency slots
+**Scale/Scope**: One local host, one OVMS process, one default fast deployment entrypoint, optional 1.7B and 8B assets, up to 32 validated API concurrency slots
 
 ## Constitution Check
 
@@ -94,10 +94,12 @@ harness/specs/007-performance-fast-profile/
 ```
 
 **Structure Decision**: Keep API code, benchmark code, and inference deployment
-separate under `app/packages` and `app/runtime`. Deployment profiles are metadata
-and Compose overlays under `runtime/deployment`; model artifacts remain mounted
-and ignored. Timing concerns stay at the service boundary and are represented by
-typed internal measurement data, not by coupling the API to OVMS internals.
+separate under `app/packages` and `app/runtime`. The deployment directory has one
+Compose entrypoint whose default configuration is the fast 1.7B profile; profile
+metadata remains under `runtime/deployment/profiles`, while model artifacts stay
+mounted and ignored. Timing concerns stay at the service boundary and are
+represented by typed internal measurement data, not by coupling the API to OVMS
+internals.
 
 ## Complexity Tracking
 

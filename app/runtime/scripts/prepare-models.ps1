@@ -5,7 +5,8 @@ param(
     [ValidateRange(1, 32)]
     [int]$Qwen17BMaxNumSeqs = 2,
     [ValidateRange(1, 32)]
-    [int]$Qwen8BMaxNumSeqs = 1
+    [int]$Qwen8BMaxNumSeqs = 1,
+    [switch]$IncludeQwen8B
 )
 
 $ErrorActionPreference = "Stop"
@@ -27,6 +28,10 @@ $definitions = @(
         MaxNumSeqs = $Qwen8BMaxNumSeqs
     }
 )
+
+if (-not $IncludeQwen8B) {
+    $definitions = @($definitions | Where-Object { $_.Alias -eq "qwen3-1.7b" })
+}
 
 function Invoke-Docker {
     param([string[]]$Arguments)

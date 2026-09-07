@@ -9,6 +9,10 @@ services:
     environment:
       OVMS_URL: http://ovms:8000
       BENCHMARK_RUNNER_URL: http://benchmark-runner:8080
+      OVMS_DEFAULT_MODEL: qwen3-1.7b
+      OVMS_MODEL_NAMES: qwen3-1.7b=qwen3-1.7b
+      PERFORMANCE_PROFILE: fast
+      MAX_CONCURRENCY: ${FAST_MAX_CONCURRENCY:-2}
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -25,7 +29,7 @@ services:
     image: ${OVMS_IMAGE:-openvino/model_server:2026.3.1-gpu}
     command:
       - --config_path
-      - /models/config.json
+      - /profile/config.json
       - --cache_dir
       - /opt/cache
       - --rest_port
@@ -35,6 +39,7 @@ services:
     volumes:
       - ../models:/models
       - ../models/.ov_cache:/opt/cache
+      - ./profiles/fast/config.json:/profile/config.json:ro
       - ${OVMS_WSL_LIB:-/usr/lib/wsl}:/usr/lib/wsl:ro
     devices:
       - ${OVMS_HOST_DEVICE:-/dev/dxg}:${OVMS_CONTAINER_DEVICE:-/dev/dxg}

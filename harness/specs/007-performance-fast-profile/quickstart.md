@@ -5,8 +5,7 @@ From the repository root, use the application deployment directory:
 ```powershell
 cd app
 docker compose --project-directory .\runtime\deployment `
-  -f .\runtime\deployment\compose.yaml `
-  -f .\runtime\deployment\compose.fast.yaml up -d --build
+  -f .\runtime\deployment\compose.yaml up -d --build
 ```
 
 Confirm readiness:

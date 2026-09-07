@@ -36,18 +36,13 @@ Copy-Item .\runtime\deployment\.env.example .\.env
 docker compose --project-directory .\runtime\deployment -f .\runtime\deployment\compose.yaml up -d --build
 ```
 
-Para priorizar latência e carregar somente o Qwen3 1.7B, use o perfil rápido:
+Esse único Compose é o ponto de entrada padrão: ele prioriza latência e carrega
+somente o Qwen3 1.7B. `FAST_MAX_CONCURRENCY` controla quantas gerações a API
+aceita simultaneamente; compare 1, 2 e 4 no hardware real antes de escolher o
+valor padrão.
 
-```powershell
-docker compose --project-directory .\runtime\deployment `
-  -f .\runtime\deployment\compose.yaml `
-  -f .\runtime\deployment\compose.fast.yaml up -d --build
-```
-
-O perfil completo continua carregando os modelos configurados em
-`runtime/models/config.json`. No perfil rápido, `FAST_MAX_CONCURRENCY` controla
-quantas gerações a API aceita simultaneamente; compare 1, 2 e 4 no hardware
-real antes de escolher o valor padrão.
+O script de preparação também prepara somente o 1.7B por padrão. Para preparar
+o 8B opcionalmente, use `.\runtime\scripts\prepare-models.ps1 -IncludeQwen8B`.
 
 O serviço OVMS monta `runtime/models/`, enquanto os resultados do benchmark ficam em
 `packages/benchmark-runner/results/`. Pesos, cache e resultados são dados locais e não
