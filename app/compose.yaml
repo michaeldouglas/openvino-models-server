@@ -8,6 +8,7 @@ services:
         required: false
     environment:
       OVMS_URL: http://ovms:8000
+      BENCHMARK_RUNNER_URL: http://benchmark-runner:8080
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -53,3 +54,30 @@ services:
       - ../harness/.agent-work/benchmarks/guidellm:/results
       - ./models/OpenVINO/Qwen3-1.7B-int4-ov:/models/qwen3-1.7b:ro
       - ./models/OpenVINO/Qwen3-8B-int4-ov:/models/qwen3-8b:ro
+
+  benchmark-runner:
+    profiles: ["benchmark-api"]
+    build:
+      context: ./benchmark_runner
+      dockerfile: Dockerfile
+    entrypoint: ["uvicorn"]
+    command: ["server:app", "--host", "0.0.0.0", "--port", "8080"]
+    environment:
+      OVMS_URL: http://ovms:8000
+      RESULTS_DIR: /results
+      BENCHMARK_MAX_ACTIVE: "1"
+    volumes:
+      - ./results:/results
+      - ./models/OpenVINO/Qwen3-1.7B-int4-ov:/models/qwen3-1.7b:ro
+      - ./models/OpenVINO/Qwen3-8B-int4-ov:/models/qwen3-8b:ro
+    expose:
+      - "8080"
+    depends_on:
+      ovms:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

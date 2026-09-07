@@ -1,14 +1,23 @@
 from fastapi.testclient import TestClient
 
-from conftest import FakeProvider
+from conftest import FakeBenchmarkGateway, FakeProvider
 from openvino_models_server.api.schemas import HealthResponse
 from openvino_models_server.config import Settings
 from openvino_models_server.main import create_app
 
 
-def make_client(provider: FakeProvider | None = None) -> TestClient:
+def make_client(
+    provider: FakeProvider | None = None,
+    benchmark_gateway: FakeBenchmarkGateway | None = None,
+) -> TestClient:
     settings = Settings(max_input_chars=20, default_max_tokens=16, max_tokens_limit=64)
-    return TestClient(create_app(settings, provider or FakeProvider()))
+    return TestClient(
+        create_app(
+            settings,
+            provider or FakeProvider(),
+            benchmark_gateway or FakeBenchmarkGateway(),
+        )
+    )
 
 
 def test_sync_and_async_return_common_contract() -> None:
@@ -105,3 +114,41 @@ def test_models_catalog_marks_default_and_status() -> None:
     assert response.status_code == 200
     assert response.json()["object"] == "list"
     assert response.json()["data"][0]["default"] is True
+
+
+def test_benchmark_submission_returns_job_without_waiting() -> None:
+    gateway = FakeBenchmarkGateway()
+    with make_client(benchmark_gateway=gateway) as client:
+        response = client.post(
+            "/v1/benchmarks",
+            json={"model": "other-model", "prompt_tokens": 16, "output_tokens": 8},
+        )
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "running"
+    assert gateway.submitted[0].model == "other-model"
+    assert gateway.submitted[0].max_requests == 1
+
+
+def test_benchmark_status_and_report_are_scoped_to_run() -> None:
+    with make_client() as client:
+        status = client.get("/v1/benchmarks/benchmark-20260907-120000-a1b2c3d4")
+        report = client.get(
+            "/v1/benchmarks/benchmark-20260907-120000-a1b2c3d4/report?format=html"
+        )
+
+    assert status.status_code == 200
+    assert status.json()["successful_requests"] == 1
+    assert report.status_code == 200
+    assert report.headers["content-type"] == "text/html; charset=utf-8"
+
+
+def test_benchmark_rejects_unknown_fields_and_invalid_report_format() -> None:
+    with make_client() as client:
+        unknown_field = client.post("/v1/benchmarks", json={"command": "rm -rf"})
+        invalid_format = client.get(
+            "/v1/benchmarks/benchmark-20260907-120000-a1b2c3d4/report?format=xml"
+        )
+
+    assert unknown_field.status_code == 422
+    assert invalid_format.status_code == 422
