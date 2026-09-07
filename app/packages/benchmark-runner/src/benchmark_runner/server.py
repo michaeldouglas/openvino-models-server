@@ -197,6 +197,7 @@ def _guidellm_command(job: Job) -> list[str]:
         "extras": {
             "body": {
                 "temperature": 0.2,
+                "chat_template_kwargs": {"enable_thinking": False},
                 "stream_options": {"continuous_usage_stats": None},
             }
         },

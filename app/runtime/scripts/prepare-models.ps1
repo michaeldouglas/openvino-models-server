@@ -93,6 +93,11 @@ if ($prepared.Count -eq 0) {
     throw "Nenhum modelo preparado foi encontrado em $modelsRoot."
 }
 
+$fastModelPath = Join-Path $modelsRoot "OpenVINO\Qwen3-1.7B-int4-ov"
+if (-not (Test-PreparedModel $fastModelPath)) {
+    throw "O perfil fast requer o artefato completo do Qwen3 1.7B em $fastModelPath."
+}
+
 $configPath = Join-Path $modelsRoot "config.json"
 $config = if (Test-Path -LiteralPath $configPath -PathType Leaf) {
     Get-Content -Raw -LiteralPath $configPath | ConvertFrom-Json
