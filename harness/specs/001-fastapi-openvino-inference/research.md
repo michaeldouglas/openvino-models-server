@@ -1,108 +1,84 @@
-# Research: FastAPI OpenVINO Text Inference
+# Research: OpenVINO Model Server API
 
 **Date**: 2026-09-06
-**Status**: Complete for planning; runtime validation intentionally deferred
+**Status**: Planning evidence recorded; real model/GPU gate pending
 
-## Decision 1: Separate the HTTP contract from model execution
+## Environment evidence
 
-**Decision**: A API terá um contrato HTTP estável e um adaptador interno para o
-  mecanismo de geração. O contrato aceitará somente texto no MVP e não exporá
-  objetos, caminhos ou parâmetros específicos do runtime.
+The Intel Hardware Advisor probe was executed through the harness runner with
+the installed Python 3.13.7 interpreter. It reported Windows 11 native host,
+Intel Core Ultra 7 258V, 32 GB class RAM, Intel Arc 140V visible to Windows,
+but OpenVINO unavailable and no runtime devices. The collector status was
+partial. This proves host detection only; it does not prove Docker GPU access.
 
-**Rationale**: A constituição exige contratos FastAPI explícitos e a
-especificação exige que a escolha entre execução local e servidor de modelo não
-altere o contrato público. A separação também permite trocar a integração sem
-forçar clientes a conhecer detalhes do modelo.
+Docker diagnostics reported context `desktop-linux`, Docker Server 29.4.3,
+Linux amd64 daemon, 8 CPUs and approximately 15.4 GiB available to the VM. No
+OVMS image or container was present. WSL2/container device visibility and real
+GPU inference remain unverified. The host GPU's shared-memory reporting is not
+treated as additional RAM or as proof of dedicated VRAM.
 
-**Alternatives considered**:
+The local Intel Docs Reader archive was unavailable: the skill's reader could
+not resolve/download its versioned 2026 cache. Official OpenVINO documentation
+was therefore consulted online and this limitation is recorded rather than
+simulating local citations.
 
-- Expor diretamente a API específica do runtime: rejeitada por acoplar clientes
-  a detalhes internos e dificultar testes de contrato.
-- Começar com um servidor OpenVINO separado: mantido como alternativa futura,
-  mas não escolhido como padrão do MVP porque o requisito atual descreve uma
-  aplicação única que usa OpenVINO internamente.
+## Architecture decision
 
-## Decision 2: Use the OpenVINO GenAI text workflow as the initial integration target
+Use two Compose services: FastAPI `api` and OpenVINO Model Server `ovms`.
+OVMS owns model loading and GPU execution; the API only sends OpenAI-compatible
+chat requests over the internal network. The API does not import OpenVINO or
+load model weights. OVMS continuous batching is the reference capability, but
+the first validation uses conservative concurrency and reports measured results
+before tuning.
 
-**Decision**: O plano assume o fluxo textual OpenVINO GenAI para a geração. A
-versão exata do runtime, o modelo, o formato final e a precisão serão fixados
-somente quando as skills de documentação, instalação, conversão e hardware
-forem usadas em uma fase autorizada.
+The official continuous-batching documentation demonstrates OpenAI-compatible
+`/v1/chat/completions`, streaming, and explicit GPU container arguments. The
+official target-device documentation specifies `/dev/dxg` and `/usr/lib/wsl`
+for Windows hosts using WSL2, while Linux uses `/dev/dri`; these are not
+interchangeable. Sources: [continuous batching demo](https://docs.openvino.ai/2026/model-server/ovms_demos_continuous_batching.html),
+[target devices](https://docs.openvino.ai/2026/model-server/ovms_docs_target_devices.html).
 
-**Rationale**: A necessidade é enviar texto a um modelo de linguagem, não
-executar um modelo clássico de classificação ou detecção. A skill
-`intel-openvino-genai-runner` cobre explicitamente fluxos textuais e de chat,
-enquanto as demais skills fornecem as verificações que não podem ser inferidas
-apenas pelo nome do dispositivo ou do modelo.
+## Image decision
 
-**Alternatives considered**:
+Plan for `openvino/model_server:2026.3.1-gpu`, a versioned GPU image based on
+Ubuntu 24.04. The Docker Hub tag listing currently exposes this tag and its
+digest, but the local daemon has not pulled or verified it. The final Compose
+file must pin the digest after a supported manifest inspection. The official
+release history documents versioned `*-gpu` images; no floating `latest` or
+`weekly` tag is used in the final configuration.
 
-- Usar uma API de provedor externo: rejeitada porque o requisito pede OpenVINO
-  internamente e a constituição prioriza a execução local/containerizada.
-- Usar somente o runtime clássico de inferência: não escolhido para o contrato
-  inicial de geração de texto, embora possa ser usado por uma integração futura
-  quando o modelo exigir esse caminho.
+## Model candidates
 
-## Decision 3: Make model and device runtime configuration
+| Candidate | Evidence and trade-off |
+|---|---|
+| `OpenVINO/Qwen3-1.7B-int4-ov` (recommended) | Official OpenVINO IR, Apache-2.0, INT4 asymmetric compression, group size 128, compatible with OpenVINO >=2025.1.0. Compact starting point with current Qwen3 chat workflow; quality, Portuguese behavior, memory and GPU performance still require measurement. |
+| `OpenVINO/Qwen2.5-1.5B-Instruct-int4-ov` | Official OpenVINO IR, Apache-2.0, explicit Instruct variant, INT4 symmetric compression, OpenVINO >=2025.1.0. Conservative fallback if Qwen3 chat-template or output behavior is unsuitable. |
+| `OpenVINO/Qwen3-4B-int4-ov` | Official OpenVINO IR, Apache-2.0, INT4 symmetric/AWQ preparation, OpenVINO >=2026.0.0. Potentially better quality at materially higher memory and latency cost. |
 
-**Decision**: O modelo será apontado por configuração de ambiente e fornecido
-por volume somente leitura. O dispositivo será selecionável por configuração,
-com `CPU` como perfil inicial conservador do plano; `AUTO`, `MULTI` ou outro
-dispositivo só será adotado após evidência correspondente.
+The recommendation is only a planning choice: it is not a claim of Portuguese
+quality, compatibility with this exact iGPU, or performance. Model cards:
+[Qwen3-1.7B](https://huggingface.co/OpenVINO/Qwen3-1.7B-int4-ov),
+[Qwen2.5-1.5B-Instruct](https://huggingface.co/OpenVINO/Qwen2.5-1.5B-Instruct-int4-ov),
+[Qwen3-4B](https://huggingface.co/OpenVINO/Qwen3-4B-int4-ov).
 
-**Rationale**: Não existe ainda um modelo nem relatório do hardware no
-repositório. A skill de hardware determina que detecção de dispositivo não
-prova compatibilidade, precisão ou desempenho. Configuração externa preserva
-artefatos originais e permite validar o mesmo contrato em ambientes distintos.
+## Operational decisions
 
-**Alternatives considered**:
+- The model name and revision are application configuration, not request input.
+- Persistent model storage is `app/models/`; downloads/preparation must resume,
+  validate and reuse artifacts rather than run on every API start.
+- The OVMS command must set `--target_device GPU`. CPU fallback, `AUTO` and
+  `MULTI` are deliberately excluded from the required GPU path.
+- Readiness probes the OVMS model/configuration endpoint and expected model name;
+  it never performs generation.
+- Sync, async and stream share validation and payload mapping. Async uses an
+  `httpx.AsyncClient`; sync blocking I/O is run through FastAPI's threadpool.
+- SSE events are normalized to `delta`, `done` and `error`; the API forwards
+  deltas rather than generating the full answer and slicing it afterward.
 
-- Embutir o modelo na imagem: rejeitada por aumentar o acoplamento, dificultar
-  atualização e contrariar a preservação de artefatos fornecidos.
-- Escolher automaticamente o melhor dispositivo sem evidência: rejeitada por
-  transformar uma preferência em uma afirmação de compatibilidade.
+## Explicitly pending evidence
 
-## Decision 4: Define liveness and readiness separately
-
-**Decision**: A API terá um estado de saúde do processo e um estado de prontidão
-que depende da configuração e disponibilidade do modelo. Falhas de prontidão
-serão reportadas com razões seguras e estáveis.
-
-**Rationale**: O serviço pode estar executando sem conseguir gerar texto. A
-separação permite diagnóstico operacional e atende diretamente aos cenários de
-modelo ausente ou falha de configuração.
-
-**Alternatives considered**:
-
-- Um único endpoint de saúde: rejeitado porque mistura processo vivo com
-  capacidade funcional.
-- Expor exceções e stack traces para diagnosticar: rejeitado pela constituição
-  e pelo requisito de não revelar detalhes internos.
-
-## Decision 5: Defer installation, conversion, optimization, inference and benchmarking
-
-**Decision**: Este plano descreve pontos de integração e critérios de validação,
-mas não executa scripts das skills Intel nem cria artefatos de modelo. Cada
-atividade futura terá seu próprio plano, confirmação quando exigida e resultado
-separado: instalação, conversão, compilação/inferência, otimização e benchmark.
-
-**Rationale**: Essa é uma restrição explícita do solicitante. Também preserva as
-fronteiras das skills: sucesso de instalação não prova compilação; compilação não
-prova desempenho; otimização não prova equivalência de qualidade.
-
-**Alternatives considered**:
-
-- Executar uma sondagem ou benchmark para preencher o plano: rejeitado porque a
-  fase atual é exclusivamente de estruturação.
-- Escolher versões ou tags atuais sem validação: rejeitado por risco de afirmar
-  compatibilidade sem documentação e evidência de ambiente.
-
-## Resolved Planning Questions
-
-- **Arquitetura do MVP**: serviço único com adaptador interno OpenVINO GenAI.
-- **Persistência**: nenhuma persistência de negócio; modelo em volume de leitura.
-- **Contrato inicial**: uma entrada textual, resposta não contínua e erros
-  estruturados.
-- **Ambiente-alvo**: container Linux para execução local ou controlada.
-- **Escopo de execução deste comando**: somente design; nenhum runtime será
-  instalado ou iniciado.
+1. WSL2 status, `/dev/dxg` and `/usr/lib/wsl` visibility from the Docker daemon.
+2. OVMS image digest and actual startup with the selected model.
+3. Model download integrity, loading log and explicit GPU device evidence.
+4. Real sync/async/stream responses and cancellation behavior.
+5. TTFT, total latency, tokens/s, resource use and controlled concurrency.

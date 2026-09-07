@@ -1,0 +1,44 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      OVMS_URL: http://ovms:8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      ovms:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  ovms:
+    image: ${OVMS_IMAGE:-openvino/model_server:2026.3.1-gpu}
+    command:
+      - --config_path
+      - /models/config.json
+      - --rest_port
+      - "8000"
+      - --file_system_poll_wait_seconds
+      - "0"
+    volumes:
+      - ./models:/models
+      - ${OVMS_WSL_LIB:-/usr/lib/wsl}:/usr/lib/wsl:ro
+    devices:
+      - ${OVMS_HOST_DEVICE:-/dev/dxg}:${OVMS_CONTAINER_DEVICE:-/dev/dxg}
+    expose:
+      - "8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/v1/models"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
