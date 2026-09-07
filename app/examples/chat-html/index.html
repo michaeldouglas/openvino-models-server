@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Local LLM Chat</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #10131a; color: #edf2f7; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: radial-gradient(circle at top, #1d2840, #10131a 55%); }
+      main { width: min(960px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0; }
+      header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+      h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
+      .status { color: #9ca3af; font-size: .9rem; }
+      .status.ready { color: #86efac; }
+      .panel { border: 1px solid #334155; border-radius: 18px; background: rgba(15, 23, 42, .84); box-shadow: 0 20px 60px rgba(0, 0, 0, .28); }
+      #messages { min-height: 420px; max-height: 58vh; overflow-y: auto; padding: 20px; display: grid; align-content: start; gap: 14px; }
+      .message { max-width: 84%; padding: 12px 15px; border-radius: 14px; white-space: pre-wrap; line-height: 1.5; }
+      .message.user { justify-self: end; background: #2563eb; }
+      .message.assistant { justify-self: start; background: #1e293b; }
+      .message.error { background: #7f1d1d; }
+      .empty { color: #94a3b8; text-align: center; padding: 100px 16px; }
+      form { display: grid; gap: 12px; padding: 16px; border-top: 1px solid #334155; }
+      .controls { display: grid; grid-template-columns: 1fr 1fr 140px 140px; gap: 10px; }
+      select, input, textarea, button { border: 1px solid #475569; border-radius: 10px; background: #0f172a; color: inherit; font: inherit; padding: 10px 12px; }
+      textarea { min-height: 76px; resize: vertical; }
+      button { border: 0; background: #2563eb; cursor: pointer; font-weight: 700; }
+      button:hover { background: #3b82f6; }
+      button:disabled { cursor: wait; opacity: .6; }
+      label { display: grid; gap: 5px; color: #94a3b8; font-size: .78rem; }
+      @media (max-width: 680px) { .controls { grid-template-columns: 1fr 1fr; } .controls label:first-child { grid-column: 1 / -1; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Local LLM Chat</h1>
+          <div class="status" id="status">Conectando à API...</div>
+        </div>
+        <span aria-hidden="true">◈</span>
+      </header>
+
+      <section class="panel" aria-label="Chat">
+        <div id="messages" aria-live="polite">
+          <div class="empty" id="empty">Escolha um modelo e envie uma mensagem.</div>
+        </div>
+        <form id="chat-form">
+          <div class="controls">
+            <label>Tipo de chamada
+              <select id="mode">
+                <option value="sync">Sync</option>
+                <option value="async">Async</option>
+                <option value="stream">Streaming</option>
+              </select>
+            </label>
+            <label>Modelo
+              <select id="model" required></select>
+            </label>
+            <label>Tokens
+              <input id="max-tokens" type="number" min="1" max="4096" value="128" />
+            </label>
+            <label>Temperatura
+              <input id="temperature" type="number" min="0" max="2" step="0.1" value="0.7" />
+            </label>
+          </div>
+          <textarea id="prompt" placeholder="Digite sua mensagem..." required></textarea>
+          <button id="send" type="submit">Enviar</button>
+        </form>
+      </section>
+    </main>
+
+    <script>
+      const modeSelect = document.querySelector("#mode");
+      const modelSelect = document.querySelector("#model");
+      const messages = document.querySelector("#messages");
+      const empty = document.querySelector("#empty");
+      const form = document.querySelector("#chat-form");
+      const promptInput = document.querySelector("#prompt");
+      const sendButton = document.querySelector("#send");
+      const status = document.querySelector("#status");
+      let modelsReady = false;
+      sendButton.disabled = true;
+
+      function addMessage(role, text, extraClass = "") {
+        empty.hidden = true;
+        const element = document.createElement("div");
+        element.className = `message ${role} ${extraClass}`;
+        element.textContent = text;
+        messages.appendChild(element);
+        messages.scrollTop = messages.scrollHeight;
+        return element;
+      }
+
+      async function loadModels() {
+        const response = await fetch("/api/v1/models");
+        if (!response.ok) throw new Error("A API não respondeu à lista de modelos.");
+        const body = await response.json();
+        const readyModels = body.data.filter((model) => model.status === "ready");
+        modelSelect.replaceChildren(...readyModels.map((model) => {
+          const option = document.createElement("option");
+          option.value = model.model;
+          option.textContent = model.model;
+          return option;
+        }));
+        if (!readyModels.length) throw new Error("Nenhum modelo está pronto.");
+        modelsReady = true;
+        sendButton.disabled = false;
+        status.textContent = `${readyModels.length} modelo(s) pronto(s)`;
+        status.classList.add("ready");
+      }
+
+      function generationPayload(text) {
+        if (!modelsReady || !modelSelect.value) {
+          throw new Error("Aguarde um modelo ficar pronto antes de enviar.");
+        }
+        const maxTokens = Number(document.querySelector("#max-tokens").value);
+        const temperature = Number(document.querySelector("#temperature").value);
+        if (!Number.isInteger(maxTokens) || maxTokens < 1) {
+          throw new Error("Tokens precisa ser um número inteiro maior que zero.");
+        }
+        if (!Number.isFinite(temperature) || temperature < 0 || temperature > 2) {
+          throw new Error("Temperatura precisa estar entre 0 e 2.");
+        }
+        return {
+          model: modelSelect.value,
+          text: text ?? promptInput.value.trim(),
+          max_tokens: maxTokens,
+          temperature,
+        };
+      }
+
+      function responseError(body) {
+        if (body.error?.message) return body.error.message;
+        if (Array.isArray(body.detail)) {
+          return body.detail.map((item) => {
+            const location = item.loc?.join(".") || "request";
+            return `${location}: ${item.msg || "valor inválido"}`;
+          }).join("; ");
+        }
+        return body.detail || "Falha na geração.";
+      }
+
+      async function readJsonResponse(response) {
+        const body = await response.json();
+        if (!response.ok) throw new Error(responseError(body));
+        return body;
+      }
+
+      async function generateStreaming(answer, payload) {
+        const response = await fetch("/api/v1/generate/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) await readJsonResponse(response);
+        if (!response.body) throw new Error("A API não retornou um stream legível.");
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { value, done } = await reader.read();
+          buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+          const events = buffer.split("\n\n");
+          buffer = events.pop() || "";
+          for (const event of events) {
+            const data = event.split("\n").find((line) => line.startsWith("data:"));
+            if (!data) continue;
+            const payload = JSON.parse(data.slice(5).trim());
+            if (event.includes("event: error")) throw new Error(payload.error?.message || "Falha no streaming.");
+            if (event.includes("event: delta")) answer.textContent += payload.text || "";
+          }
+          if (done) break;
+          messages.scrollTop = messages.scrollHeight;
+        }
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const prompt = promptInput.value.trim();
+        if (!prompt) return;
+
+        addMessage("user", prompt);
+        sendButton.disabled = true;
+        const answer = addMessage("assistant", "Pensando...");
+
+        try {
+          const payload = generationPayload(prompt);
+          promptInput.value = "";
+          if (modeSelect.value === "stream") {
+            answer.textContent = "";
+            await generateStreaming(answer, payload);
+          } else {
+            const response = await fetch(`/api/v1/generate/${modeSelect.value}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const body = await readJsonResponse(response);
+            answer.textContent = body.text || "A API retornou uma resposta vazia.";
+          }
+        } catch (error) {
+          answer.classList.add("error");
+          answer.textContent = error instanceof Error ? error.message : "Erro inesperado.";
+        } finally {
+          sendButton.disabled = !modelsReady;
+          promptInput.focus();
+        }
+      });
+
+      loadModels().catch((error) => {
+        modelsReady = false;
+        sendButton.disabled = true;
+        status.textContent = error instanceof Error ? error.message : "API indisponível";
+        status.classList.remove("ready");
+      });
+    </script>
+  </body>
+</html>
