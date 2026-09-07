@@ -106,6 +106,25 @@ Apply cleanup only after reviewing the preview:
 The cleanup command refuses targets outside .agent-work, reparse points, active
 runs, models, source code, tests, specs and Graphify output.
 
-The future API belongs in the sibling app. This preparation does not implement
-endpoints, install OpenVINO, download models, run inference, benchmark models or
-start Docker.
+## GuideLLM benchmark
+
+O app possui um serviço Compose opcional `guidellm`, fixado na imagem publicada
+`v0.7.3` por digest. Ele mede diretamente o OVMS pela rede interna; não mede o
+overhead das rotas FastAPI e não deve ser iniciado pelo `docker compose up`
+normal. Com `api` e `ovms` saudáveis, execute a partir deste diretório:
+
+~~~powershell
+.\scripts\Invoke-GuideLLMBenchmark.ps1 -Model qwen3-8b -PromptTokens 32 -OutputTokens 32 -Concurrency 1 -MaxRequests 1
+~~~
+
+Os relatórios ficam em
+`.agent-work/benchmarks/guidellm/<run-id>/`: `benchmarks.json`,
+`benchmarks.csv`, `benchmarks.html` e `run-manifest.json`. O quickstart da
+feature em `specs/003-guidellm-observability/quickstart.md` explica como trocar
+modelo, entrada, saída, concorrência e limites, além de interpretar tokens/s,
+TTFT, ITL, latência e percentis. Pesos não são copiados; os tokenizers são
+montados somente para leitura a partir de `app/models`. O script imprime
+`GUIDELLM_RUN=...`; abra `benchmarks.html` com `Invoke-Item` nesse diretório e
+consulte `benchmarks.csv`, `benchmarks.json`, `run-manifest.json` e `run.log`
+para os dados detalhados. Uma execução só passa quando há requisições
+bem-sucedidas, evitando tratar um relatório de erros como desempenho medido.

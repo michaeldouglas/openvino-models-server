@@ -10,25 +10,32 @@ from fastapi.responses import JSONResponse
 
 from openvino_models_server.api.routes import router
 from openvino_models_server.api.schemas import ErrorDetails, ErrorResponse
+from openvino_models_server.application.benchmarking import BenchmarkGateway
 from openvino_models_server.application.generation import GenerationService, InferenceProvider
 from openvino_models_server.config import Settings, get_settings
+from openvino_models_server.infrastructure.benchmark_client import BenchmarkClient
 from openvino_models_server.infrastructure.errors import InferenceError
 from openvino_models_server.infrastructure.ovms_client import OVMSClient
 
 
 def create_app(
-    settings: Settings | None = None, provider: InferenceProvider | None = None
+    settings: Settings | None = None,
+    provider: InferenceProvider | None = None,
+    benchmark_gateway: BenchmarkGateway | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     resolved_provider = provider or OVMSClient(resolved_settings)
+    resolved_benchmark_gateway = benchmark_gateway or BenchmarkClient(resolved_settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.generation_service = GenerationService(resolved_settings, resolved_provider)
+        app.state.benchmark_gateway = resolved_benchmark_gateway
         yield
         close = getattr(resolved_provider, "aclose", None)
         if close is not None:
             await close()
+        await resolved_benchmark_gateway.aclose()
 
     app = FastAPI(
         title="OpenVINO Model Server API",

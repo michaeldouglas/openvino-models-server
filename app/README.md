@@ -21,7 +21,8 @@ OVMS é o único responsável por carregar o modelo e executar a geração.
 - `tests`: testes permanentes com upstream controlado; não exigem GPU/modelo.
 - `models`: armazenamento persistente local, ignorado pelo Git.
 - `scripts/prepare-models.ps1`: prepara os dois artefatos Qwen e gera a configuração multi-modelo do OVMS.
-- `compose.yaml`: serviços `api` e `ovms`.
+- `benchmark_runner`: executor isolado do GuideLLM acionado pelas rotas administrativas de benchmark.
+- `compose.yaml`: serviços `api`, `ovms` e profiles opcionais de benchmark.
 
 ## Modelo e GPU
 
@@ -115,6 +116,46 @@ estiver disponível em outro ambiente, o 1.7B continua sendo o padrão.
 Erros retornam `{ "error": { "code", "message", "request_id" } }` com códigos
 para entrada inválida, capacidade, upstream indisponível/falho e timeout.
 Prompts e respostas completas não são registrados por padrão.
+
+## Benchmarks pela API
+
+Para habilitar o executor isolado do GuideLLM, a partir desta pasta execute:
+
+```powershell
+docker compose --profile benchmark-api up -d --build
+```
+
+O FastAPI não recebe o Docker socket. Ele envia o job ao serviço interno
+`benchmark-runner`, que executa o GuideLLM e grava os arquivos em
+`app/results/<run-id>/`. Essa pasta é local, ignorada pelo Git e separada de
+`harness/.agent-work`, que continua sendo a área de trabalho do harness.
+
+Crie uma execução:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/v1/benchmarks `
+  -H "Content-Type: application/json" `
+  -d '{"model":"qwen3-8b","prompt_tokens":32,"output_tokens":32,"concurrency":1,"max_requests":1}'
+```
+
+A resposta é `202` com um `run_id`. Consulte o estado e o relatório:
+
+```powershell
+curl.exe http://127.0.0.1:8000/v1/benchmarks/<run-id>
+curl.exe -o benchmark.html http://127.0.0.1:8000/v1/benchmarks/<run-id>/report?format=html
+Start-Process .\benchmark.html
+```
+
+Também é possível abrir diretamente `results/<run-id>/benchmarks.html` e
+consultar `benchmarks.json`, `benchmarks.csv`, `run-manifest.json` e `run.log`.
+Somente `html`, `json` e `csv` são aceitos; caminhos e comandos enviados pelo
+cliente nunca são executados. Há uma execução ativa permitida por padrão e o
+estado em memória não sobrevive à reinicialização do executor, embora arquivos
+já concluídos permaneçam no volume.
+
+Essas rotas medem o OVMS diretamente. Elas não substituem as rotas de geração,
+não baixam modelos e não incluem automaticamente a latência adicional do
+FastAPI.
 
 ## Testes e evidências
 

@@ -56,3 +56,25 @@ class ModelStatusResponse(BaseModel):
 class ModelListResponse(BaseModel):
     data: list[ModelStatusResponse]
     object: Literal["list"] = "list"
+
+
+class BenchmarkRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model: str | None = Field(default=None, min_length=1, max_length=128)
+    prompt_tokens: int = Field(default=32, ge=1, le=4096)
+    output_tokens: int = Field(default=32, ge=1, le=512)
+    concurrency: int = Field(default=1, ge=1, le=32)
+    max_requests: int = Field(default=1, ge=1, le=1000)
+    max_duration_seconds: int = Field(default=0, ge=0, le=3600)
+
+
+class BenchmarkResponse(BaseModel):
+    run_id: str
+    model: str
+    status: Literal["running", "completed", "failed"]
+    results_path: str
+    files: list[str] = Field(default_factory=list)
+    successful_requests: int | None = None
+    errored_requests: int | None = None
+    error: str | None = None

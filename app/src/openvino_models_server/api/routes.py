@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from openvino_models_server.api.schemas import (
+    BenchmarkRequest,
+    BenchmarkResponse,
     ErrorDetails,
     GenerationRequest,
     GenerationResponse,
@@ -16,14 +18,36 @@ from openvino_models_server.api.schemas import (
     ModelStatusResponse,
     ReadinessResponse,
 )
+from openvino_models_server.application.benchmarking import (
+    BenchmarkGateway,
+    BenchmarkJob,
+    BenchmarkSpec,
+)
 from openvino_models_server.application.generation import GenerationService
-from openvino_models_server.infrastructure.errors import InferenceError
+from openvino_models_server.infrastructure.errors import InferenceError, ModelNotFoundError
 
 router = APIRouter()
 
 
 def get_service(request: Request) -> GenerationService:
     return cast(GenerationService, request.app.state.generation_service)
+
+
+def get_benchmark_gateway(request: Request) -> BenchmarkGateway:
+    return cast(BenchmarkGateway, request.app.state.benchmark_gateway)
+
+
+def _benchmark_response(job: BenchmarkJob) -> BenchmarkResponse:
+    return BenchmarkResponse(
+        run_id=job.run_id,
+        model=job.model,
+        status=job.status,  # type: ignore[arg-type]
+        results_path=job.results_path,
+        files=list(job.files),
+        successful_requests=job.successful_requests,
+        errored_requests=job.errored_requests,
+        error=job.error,
+    )
 
 
 def _sse(event: str, data: dict[str, object]) -> str:
@@ -63,6 +87,59 @@ async def models(
             for status in statuses
         ]
     )
+
+
+@router.post(
+    "/v1/benchmarks",
+    response_model=BenchmarkResponse,
+    status_code=202,
+    tags=["benchmarks"],
+    summary="Iniciar benchmark do OVMS",
+)
+async def create_benchmark(
+    request_body: BenchmarkRequest,
+    request: Request,
+    service: Annotated[GenerationService, Depends(get_service)],
+    gateway: Annotated[BenchmarkGateway, Depends(get_benchmark_gateway)],
+) -> BenchmarkResponse:
+    model = request_body.model or service.settings.benchmark_default_model
+    if model not in service.provider.model_names:
+        raise ModelNotFoundError()
+    spec = BenchmarkSpec(
+        model=model,
+        prompt_tokens=request_body.prompt_tokens,
+        output_tokens=request_body.output_tokens,
+        concurrency=request_body.concurrency,
+        max_requests=request_body.max_requests,
+        max_duration_seconds=request_body.max_duration_seconds,
+    )
+    job = await gateway.submit(spec, request.state.request_id)
+    return _benchmark_response(job)
+
+
+@router.get(
+    "/v1/benchmarks/{run_id}",
+    response_model=BenchmarkResponse,
+    tags=["benchmarks"],
+)
+async def benchmark_status(
+    run_id: str,
+    request: Request,
+    gateway: Annotated[BenchmarkGateway, Depends(get_benchmark_gateway)],
+) -> BenchmarkResponse:
+    job = await gateway.status(run_id, request.state.request_id)
+    return _benchmark_response(job)
+
+
+@router.get("/v1/benchmarks/{run_id}/report", tags=["benchmarks"])
+async def benchmark_report(
+    run_id: str,
+    request: Request,
+    gateway: Annotated[BenchmarkGateway, Depends(get_benchmark_gateway)],
+    format: Literal["html", "json", "csv"] = "html",
+) -> Response:
+    content, media_type = await gateway.report(run_id, format, request.state.request_id)
+    return Response(content=content, media_type=media_type.split(";", 1)[0])
 
 
 @router.post("/v1/generate/sync", response_model=GenerationResponse, tags=["generation"])
