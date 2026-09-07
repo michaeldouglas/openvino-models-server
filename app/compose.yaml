@@ -8,6 +8,7 @@ services:
         required: false
     environment:
       OVMS_URL: http://ovms:8000
+      BENCHMARK_RUNNER_URL: http://benchmark-runner:8080
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -42,3 +43,41 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
+
+  guidellm:
+    profiles: ["benchmark"]
+    image: ghcr.io/vllm-project/guidellm:v0.7.3@sha256:e3ad2371bfa8e42f2c3d1251b62d0d9c9706c27ae2143c8c048eb5fc6aebb558
+    working_dir: /results
+    environment:
+      GUIDELLM__DEFAULT_RESULTS_DIR: /results
+    volumes:
+      - ../harness/.agent-work/benchmarks/guidellm:/results
+      - ./models/OpenVINO/Qwen3-1.7B-int4-ov:/models/qwen3-1.7b:ro
+      - ./models/OpenVINO/Qwen3-8B-int4-ov:/models/qwen3-8b:ro
+
+  benchmark-runner:
+    profiles: ["benchmark-api"]
+    build:
+      context: ./benchmark_runner
+      dockerfile: Dockerfile
+    entrypoint: ["uvicorn"]
+    command: ["server:app", "--host", "0.0.0.0", "--port", "8080"]
+    environment:
+      OVMS_URL: http://ovms:8000
+      RESULTS_DIR: /results
+      BENCHMARK_MAX_ACTIVE: "1"
+    volumes:
+      - ./results:/results
+      - ./models/OpenVINO/Qwen3-1.7B-int4-ov:/models/qwen3-1.7b:ro
+      - ./models/OpenVINO/Qwen3-8B-int4-ov:/models/qwen3-8b:ro
+    expose:
+      - "8080"
+    depends_on:
+      ovms:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

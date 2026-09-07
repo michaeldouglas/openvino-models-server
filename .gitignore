@@ -61,5 +61,6 @@ debug/
 # Application-generated operational state and model artifacts
 /app/.agent-work/
 /app/graphify-out/
+/app/results/
 /app/models/*
 !/app/models/.gitkeep
