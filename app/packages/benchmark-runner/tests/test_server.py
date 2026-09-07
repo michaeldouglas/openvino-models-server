@@ -27,6 +27,7 @@ def make_job() -> Job:
 
 def test_guidellm_command_has_allowlisted_target_and_reports() -> None:
     command = _guidellm_command(make_job())
+    backend = json.loads(command[command.index("--backend") + 1])
 
     assert command[0:2] == ["guidellm", "run"]
     assert "kind=max_requests,count=2" in command
@@ -36,6 +37,7 @@ def test_guidellm_command_has_allowlisted_target_and_reports() -> None:
         for item in command
         if "path=" in item
     )
+    assert backend["extras"]["body"]["chat_template_kwargs"] == {"enable_thinking": False}
     assert "docker" not in command
 
 

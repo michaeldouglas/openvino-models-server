@@ -11,7 +11,11 @@ RUN python -m pip install --no-cache-dir \
 WORKDIR /runner
 COPY pyproject.toml README.md ./
 COPY src ./src
+USER root
 RUN python -m pip install --no-cache-dir .
+RUN useradd --create-home --uid 10001 benchmarkuser \
+    && chown -R benchmarkuser:benchmarkuser /runner
+USER benchmarkuser
 
 EXPOSE 8080
 CMD ["uvicorn", "benchmark_runner.server:app", "--host", "0.0.0.0", "--port", "8080"]
