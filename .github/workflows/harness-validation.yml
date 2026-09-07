@@ -76,8 +76,8 @@ jobs:
           if (-not ($gitignoreLines | Where-Object { $_.Trim() -eq '/harness/.agent-work/' })) {
             throw 'Root .gitignore does not protect harness/.agent-work.'
           }
-          if (-not ($gitignoreLines | Where-Object { $_.Trim() -eq '/app/models/*' })) {
-            throw 'Root .gitignore does not protect app/models artifacts.'
+          if (-not ($gitignoreLines | Where-Object { $_.Trim() -eq '/app/runtime/models/*' })) {
+            throw 'Root .gitignore does not protect app/runtime/models artifacts.'
           }
 
           Write-Output 'Harness validation passed.'

@@ -1,0 +1,1 @@
+"""OpenVINO Model Server adapter."""
