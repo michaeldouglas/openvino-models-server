@@ -38,10 +38,11 @@ o daemon local fizer a inspeção do manifesto. Em Windows, só use a configura�
 recursos. Linux nativo usa uma configuração distinta com `/dev/dri`; não copie
 os argumentos entre os ambientes.
 
-O diagnóstico atual confirmou o Intel Core Ultra 7 258V, Windows 11 e GPU Intel
-Arc 140V no host, mas ainda não confirmou OpenVINO no host, WSL2, visibilidade
-da GPU no container ou geração real. Portanto, não há fallback automático para
-CPU.
+O diagnóstico confirmou o Intel Core Ultra 7 258V, Windows 11 e GPU Intel Arc
+140V no host. O OVMS 2026.3.1 no Docker Desktop reportou `CPU, GPU`, os dois
+graphs estão configurados com `device: "GPU"` e ambos passaram por geração real
+na API. Isso comprova a visibilidade e a configuração usadas nesta execução;
+medições detalhadas de utilização da GPU ainda dependem de benchmark próprio.
 
 ## Configuração e inicialização
 
@@ -108,7 +109,8 @@ uma palavra, várias palavras ou vazio; concatene os textos dos deltas.
 
 `GET /v1/models` informa quais aliases estão prontos e qual é o padrão. A
 seleção é por requisição, portanto não há troca global que possa afetar uma
-geração concorrente. Se o 8B não estiver pronto, o 1.7B continua disponível.
+geração concorrente. O 8B foi preparado e validado nesta máquina; se ele não
+estiver disponível em outro ambiente, o 1.7B continua sendo o padrão.
 
 Erros retornam `{ "error": { "code", "message", "request_id" } }` com códigos
 para entrada inválida, capacidade, upstream indisponível/falho e timeout.

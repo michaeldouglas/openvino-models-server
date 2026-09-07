@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feature/multi-model-qwen-selection`
 **Created**: 2026-09-06
-**Status**: Ready for implementation
+**Status**: Implemented; broader benchmarking remains pending
 **Input**: User description: manter Qwen 1.7B e Qwen 8B disponíveis e permitir escolher o modelo em cada geração.
 
 ## User Scenarios & Testing

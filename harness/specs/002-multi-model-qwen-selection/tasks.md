@@ -35,7 +35,7 @@
 
 - [x] T016 [US3] Add the allowlisted, resumable preparation command and validation of required model files in `app/scripts/prepare-models.ps1`.
 - [x] T017 [US3] Add generated-configuration and Compose syntax validation instructions in `harness/specs/002-multi-model-qwen-selection/quickstart.md`.
-- [ ] T018 [US3] Prepare and run a real Qwen3-8B GPU smoke test, recording evidence in `harness/.agent-work`; do not mark complete from mocks.
+- [x] T018 [US3] Prepare and run a real Qwen3-8B GPU smoke test, recording evidence in `harness/.agent-work`; do not mark complete from mocks.
 
 ## Phase 6: Polish and quality
 
@@ -51,9 +51,9 @@
 - T008-T012 implement and verify request-level selection.
 - T013-T015 implement and verify the catalog.
 - T016-T017 implement offline preparation documentation.
-- T018 depends on the prepared Qwen3-8B artifact and real Docker/Intel GPU access.
+- T018 depends on the prepared Qwen3-8B artifact and real Docker/Intel GPU access; validated in `harness/.agent-work/runs/qwen3-8b-api-sync/openvino-engineer` and the corresponding async/stream runs.
 - T019-T022 are final validation and evidence tasks.
 
 ## Implementation strategy
 
-Keep the 1.7B as the default. Add the 8B to the allowlist and persistent repository without downloading it during this code change. The real 8B preparation and GPU acceptance remain explicitly gated by available disk, memory, and user confirmation.
+Keep the 1.7B as the default. Add the 8B to the allowlist and persistent repository. The real 8B preparation and GPU smoke acceptance are recorded in the harness work area; broader benchmarking remains a separate task.

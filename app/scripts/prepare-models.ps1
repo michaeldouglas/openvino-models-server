@@ -104,7 +104,7 @@ $managedGraphs = @($prepared | ForEach-Object {
         [pscustomobject]@{
             name = $_.Alias
             base_path = $_.RelativePath
-            graph_path = "$($_.RelativePath)/graph.pbtxt"
+            graph_path = "graph.pbtxt"
         }
     })
 $config.mediapipe_config_list = @($existingGraphs + $managedGraphs)
